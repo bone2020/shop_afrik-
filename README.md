@@ -33,8 +33,22 @@ for the full product plan and technical roadmap.
   order creation + QR payload, payment confirmation, delivery confirmation,
   tiered refund decisions, seller approval, role management, and the daily
   day-8 settlement job. The QR Wallet integration is isolated behind one
-  module (`functions/src/lib/qrWallet.ts`) to be wired to the QR Wallet
-  project (plan §4 business-wallet pattern).
+  module (`functions/src/lib/qrWallet.ts`).
+
+**Platform wallet (Option A)** ✅
+
+- QR Wallet hosts a segregated Shop Afrik platform account with three internal
+  buckets **per currency**: escrow (buyer funds held), payable (seller earnings
+  owed), commission (the only revenue). Shop Afrik instructs internal moves via
+  the `qrWallet.ts` seam (hold/release/settle/payout) with explicit currency +
+  idempotency keys, and mirrors every move to its own ledger
+  (`platform_balances`, `platform_ledger`) for reconciliation.
+- Admin dashboard renders the three buckets per currency (never blended; only
+  commission labeled revenue).
+- ISO 4217 minor-unit exponents (`CurrencyMeta` / `currency.ts`) — never assume
+  two decimals.
+- A SessionStart hook (`.claude/hooks/session-start.sh`) installs Flutter +
+  firebase-tools so the analyzer, tests, and rules tests run on the web.
 
 ### Backend
 
