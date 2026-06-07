@@ -51,7 +51,6 @@ abstract final class AppConfig {
       dialCode: '+233',
       label: 'Ghana',
       enabled: true,
-      deliveryFeeMinor: 1500, // GHS 15.00
     ),
     'NG': MarketConfig(
       countryCode: 'NG',
@@ -59,7 +58,6 @@ abstract final class AppConfig {
       dialCode: '+234',
       label: 'Nigeria',
       enabled: true,
-      deliveryFeeMinor: 150000, // NGN 1,500.00
     ),
   };
 

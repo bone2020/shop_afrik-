@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
 import 'market_config.dart';
-import 'money.dart';
 
 /// Admin-configurable platform settings, stored at `settings/platform`
 /// (plan §6, §10). This is the runtime source of truth for everything the plan
@@ -61,9 +60,6 @@ class PlatformSettings {
   /// Effective payment-fee rate for a market (per-market override or global).
   double paymentFeeRateFor(String countryCode) =>
       markets[countryCode]?.paymentFeeRate ?? paymentFeeRate;
-
-  /// Delivery fee for a market, carrying that market's currency.
-  Money? deliveryFeeFor(String countryCode) => markets[countryCode]?.deliveryFee;
 
   /// Refund ceilings for a currency, or null if that currency is unconfigured.
   RefundTierCeilings? refundTiersFor(String currency) =>

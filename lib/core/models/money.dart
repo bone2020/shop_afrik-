@@ -1,19 +1,32 @@
 import 'package:flutter/foundation.dart';
 
+import 'currency.dart';
+
 /// A currency amount stored as integer minor units (e.g. pesewas, kobo) to
-/// avoid floating-point rounding on money.
+/// avoid floating-point rounding on money. The number of minor units per major
+/// unit follows the currency's ISO 4217 exponent (see [CurrencyMeta]) — never
+/// assume two decimals.
 @immutable
 class Money {
   const Money({required this.minorUnits, required this.currency});
 
-  /// Amount in the currency's smallest unit (e.g. 1 major unit = 100 minor).
+  /// Builds money from a major-unit amount using the currency's exponent.
+  factory Money.fromMajor(num amount, String currency) => Money(
+        minorUnits: (amount * CurrencyMeta.minorUnitsPer(currency)).round(),
+        currency: currency,
+      );
+
+  /// Amount in the currency's smallest unit.
   final int minorUnits;
 
   /// ISO-4217 code. Money always carries its currency; amounts in different
   /// currencies are never combined or compared.
   final String currency;
 
-  double get major => minorUnits / 100.0;
+  /// Number of decimal places for this currency (ISO 4217 exponent).
+  int get decimals => CurrencyMeta.decimalsFor(currency);
+
+  double get major => minorUnits / CurrencyMeta.minorUnitsPer(currency);
 
   Money operator +(Money other) {
     _assertSameCurrency(other);
@@ -72,5 +85,5 @@ class Money {
   int get hashCode => Object.hash(minorUnits, currency);
 
   @override
-  String toString() => '$currency ${major.toStringAsFixed(2)}';
+  String toString() => '$currency ${major.toStringAsFixed(decimals)}';
 }

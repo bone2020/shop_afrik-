@@ -60,8 +60,8 @@ class ShopOrder {
     required this.items,
     required this.subtotal,
     required this.paymentFee,
-    required this.deliveryFee,
     required this.total,
+    this.deliveryFee,
     this.status = OrderStatus.pendingPayment,
     this.paymentStatus = PaymentStatus.pending,
     this.deliveryStatus = DeliveryStatus.notDispatched,
@@ -77,12 +77,18 @@ class ShopOrder {
   final String buyerId;
   final List<OrderItem> items;
 
-  // Totals (plan §5 step 2). The buyer pays the payment processing fee as a
-  // separate line item (plan §6).
+  // Totals. The buyer pays the payment processing fee as a separate line item
+  // (plan §6). [total] is the up-front amount and intentionally EXCLUDES
+  // delivery: delivery is admin-set per order (not auto-calculated), and the
+  // product-vs-quote checkout flow that decides when/how it is charged is not
+  // yet finalized.
   final Money subtotal;
   final Money paymentFee;
-  final Money deliveryFee;
   final Money total;
+
+  /// Admin-set delivery amount, populated once a delivery quote is agreed.
+  /// Null until then; never auto-derived from a flat market fee.
+  final Money? deliveryFee;
 
   final OrderStatus status;
   final PaymentStatus paymentStatus;
@@ -111,7 +117,7 @@ class ShopOrder {
         'sellerIds': sellerIds.toList(),
         'subtotal': subtotal.toMap(),
         'paymentFee': paymentFee.toMap(),
-        'deliveryFee': deliveryFee.toMap(),
+        'deliveryFee': deliveryFee?.toMap(),
         'total': total.toMap(),
         'status': status.name,
         'paymentStatus': paymentStatus.name,
@@ -133,7 +139,9 @@ class ShopOrder {
             const [],
         subtotal: Money.fromMap(map['subtotal'] as Map<String, dynamic>?),
         paymentFee: Money.fromMap(map['paymentFee'] as Map<String, dynamic>?),
-        deliveryFee: Money.fromMap(map['deliveryFee'] as Map<String, dynamic>?),
+        deliveryFee: map['deliveryFee'] == null
+            ? null
+            : Money.fromMap(map['deliveryFee'] as Map<String, dynamic>?),
         total: Money.fromMap(map['total'] as Map<String, dynamic>?),
         status: OrderStatus.fromName(map['status'] as String?),
         paymentStatus: PaymentStatus.fromName(map['paymentStatus'] as String?),

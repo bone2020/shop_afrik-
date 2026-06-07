@@ -16,7 +16,6 @@ void main() {
       expect(s.marketFor('ZZ'), isNull);
       expect(s.isMarketEnabled('ZZ'), isFalse);
       expect(s.refundTiersFor('XAF'), isNull);
-      expect(s.deliveryFeeFor('ZZ'), isNull);
     });
 
     test('adding a country is pure config — no code change', () {
@@ -29,7 +28,6 @@ void main() {
             'dialCode': '+254',
             'label': 'Kenya',
             'enabled': true,
-            'deliveryFeeMinor': 30000,
             'paymentFeeRate': 0.02,
           },
         },
@@ -39,8 +37,7 @@ void main() {
       });
 
       expect(s.isMarketEnabled('KE'), isTrue);
-      expect(s.deliveryFeeFor('KE')!.currency, 'KES');
-      expect(s.deliveryFeeFor('KE')!.minorUnits, 30000);
+      expect(s.marketFor('KE')!.currency, 'KES');
       // Per-market payment-fee override beats the global rate.
       expect(s.paymentFeeRateFor('KE'), 0.02);
       expect(s.refundTiersFor('KES')!.tier2, 39000);

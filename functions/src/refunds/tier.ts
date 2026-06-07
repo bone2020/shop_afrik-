@@ -1,4 +1,5 @@
 import { PlatformSettings, refundTiersFor } from '../config';
+import { majorToMinor } from '../lib/currency';
 import { RefundTier } from '../types';
 
 /**
@@ -19,9 +20,10 @@ export function refundTierFor(
         'Add a row to platform settings refundTiersByCurrency.',
     );
   }
-  // Ceilings are in whole-currency units; compare in minor units.
-  const tier1 = ceilings.tier1 * 100;
-  const tier2 = ceilings.tier2 * 100;
+  // Ceilings are in whole-currency units; compare in minor units using the
+  // currency's own exponent (never assume two decimals).
+  const tier1 = majorToMinor(ceilings.tier1, currency);
+  const tier2 = majorToMinor(ceilings.tier2, currency);
   if (amountMinorUnits <= tier1) return 'tier1';
   if (amountMinorUnits <= tier2) return 'tier2';
   return 'exceptional';

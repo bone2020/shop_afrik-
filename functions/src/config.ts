@@ -1,5 +1,5 @@
 import { db } from './lib/admin';
-import { Collections, PLATFORM_SETTINGS_DOC, Money, money } from './types';
+import { Collections, PLATFORM_SETTINGS_DOC } from './types';
 
 /** Per-country market configuration (mirrors Dart `MarketConfig`). */
 export interface MarketConfig {
@@ -8,8 +8,6 @@ export interface MarketConfig {
   dialCode: string;
   label: string;
   enabled: boolean;
-  /** Flat delivery fee in minor units of `currency`. */
-  deliveryFeeMinor: number;
   /** Optional per-market payment-fee rate override (falls back to global). */
   paymentFeeRate?: number;
   /** Optional minimum order amount in minor units of `currency`. */
@@ -52,7 +50,6 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
       dialCode: '+233',
       label: 'Ghana',
       enabled: true,
-      deliveryFeeMinor: 1500,
     },
     NG: {
       countryCode: 'NG',
@@ -60,7 +57,6 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
       dialCode: '+234',
       label: 'Nigeria',
       enabled: true,
-      deliveryFeeMinor: 150000,
     },
   },
   refundTiersByCurrency: {
@@ -106,15 +102,6 @@ export function paymentFeeRateFor(
   countryCode: string,
 ): number {
   return settings.markets[countryCode]?.paymentFeeRate ?? settings.paymentFeeRate;
-}
-
-/** Delivery fee for a market, carrying that market's currency, or null. */
-export function deliveryFeeFor(
-  settings: PlatformSettings,
-  countryCode: string,
-): Money | null {
-  const m = settings.markets[countryCode];
-  return m ? money(m.deliveryFeeMinor, m.currency) : null;
 }
 
 export function refundTiersFor(

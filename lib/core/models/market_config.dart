@@ -16,7 +16,6 @@ class MarketConfig {
     required this.dialCode,
     required this.label,
     this.enabled = true,
-    this.deliveryFeeMinor = 0,
     this.paymentFeeRate,
     this.minOrderMinor,
   });
@@ -37,18 +36,12 @@ class MarketConfig {
   /// start enabled; expansion markets are added disabled, then flipped on.
   final bool enabled;
 
-  /// Flat delivery fee in minor units of [currency] (basic delivery model).
-  final int deliveryFeeMinor;
-
   /// Optional per-market payment-fee rate override; falls back to the global
   /// rate when null.
   final double? paymentFeeRate;
 
   /// Optional minimum order amount in minor units of [currency].
   final int? minOrderMinor;
-
-  Money get deliveryFee =>
-      Money(minorUnits: deliveryFeeMinor, currency: currency);
 
   Money? get minOrder => minOrderMinor == null
       ? null
@@ -60,7 +53,6 @@ class MarketConfig {
         'dialCode': dialCode,
         'label': label,
         'enabled': enabled,
-        'deliveryFeeMinor': deliveryFeeMinor,
         'paymentFeeRate': paymentFeeRate,
         'minOrderMinor': minOrderMinor,
       };
@@ -71,7 +63,6 @@ class MarketConfig {
         dialCode: map['dialCode'] as String? ?? '',
         label: map['label'] as String? ?? '',
         enabled: map['enabled'] as bool? ?? true,
-        deliveryFeeMinor: (map['deliveryFeeMinor'] as num?)?.toInt() ?? 0,
         paymentFeeRate: (map['paymentFeeRate'] as num?)?.toDouble(),
         minOrderMinor: (map['minOrderMinor'] as num?)?.toInt(),
       );

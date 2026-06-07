@@ -4,6 +4,7 @@ import { db } from '../lib/admin';
 import { writeAudit } from '../lib/audit';
 import { notify } from '../lib/notify';
 import { commissionFor, loadSettings } from '../config';
+import { formatMoney } from '../lib/currency';
 import * as qrWallet from '../lib/qrWallet';
 import { Collections, Money, OrderItem, applyRate, money } from '../types';
 
@@ -98,7 +99,7 @@ export const settleDueOrders = onSchedule('every day 02:00', async () => {
           recipientId: sellerId,
           audience: 'seller',
           title: 'Payout sent',
-          body: `${net.currency} ${(net.minorUnits / 100).toFixed(2)} settled to your wallet.`,
+          body: `${formatMoney(net)} settled to your wallet.`,
           type: 'settlement',
           deepLink: '/seller',
         });

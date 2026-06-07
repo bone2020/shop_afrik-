@@ -115,8 +115,10 @@ export const createOrder = onCall(async (req) => {
     }
 
     const paymentFee = applyRate(sub, paymentFeeRateFor(settings, market));
-    const deliveryFee = money(marketCfg.deliveryFeeMinor, marketCfg.currency);
-    const total = addMoney(addMoney(sub, paymentFee), deliveryFee);
+    // Delivery is admin-set per order (not a flat market fee) and is NOT baked
+    // into the up-front total: the product-vs-quote checkout flow that decides
+    // how delivery is charged is not yet finalized.
+    const total = addMoney(sub, paymentFee);
 
     const orderRef = db.collection(Collections.orders).doc();
     const sellerIds = [...new Set(items.map((i) => i.sellerId))];
@@ -127,7 +129,7 @@ export const createOrder = onCall(async (req) => {
       market,
       subtotal: sub,
       paymentFee,
-      deliveryFee,
+      deliveryFee: null,
       total,
       status: 'pendingPayment',
       paymentStatus: 'pending',
