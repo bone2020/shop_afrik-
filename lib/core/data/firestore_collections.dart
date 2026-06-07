@@ -18,4 +18,10 @@ abstract final class Collections {
   /// (commission rate, refund tiers, etc.). Path: settings/platform.
   static const String settings = 'settings';
   static const String platformSettingsDoc = 'platform';
+
+  /// Shop Afrik's mirror of the QR Wallet platform account: the three buckets
+  /// per currency, the ledger of moves, and reconciliation runs.
+  static const String platformBalances = 'platform_balances';
+  static const String platformLedger = 'platform_ledger';
+  static const String reconciliations = 'reconciliations';
 }

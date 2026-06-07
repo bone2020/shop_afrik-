@@ -4,6 +4,7 @@ import { db } from '../lib/admin';
 import { requireRole, isSupervisor } from '../lib/guards';
 import { writeAudit } from '../lib/audit';
 import { notify } from '../lib/notify';
+import { recordLedgerMove } from '../lib/ledger';
 import { loadSettings } from '../config';
 import * as qrWallet from '../lib/qrWallet';
 import { refundTierFor, requiresSecondApproval } from './tier';
@@ -139,11 +140,22 @@ export const decideRefund = onCall(async (req) => {
     return { ok: true, status: 'escalated' };
   }
 
-  // Step 2: required approvals met — pay the buyer and adjust the order.
-  const payoutId = await qrWallet.refundToBuyer({
+  // Step 2: required approvals met — release the escrowed funds back to the
+  // buyer and adjust the order. escrow -amount -> buyer wallet.
+  const moveId = `refund_release_${refundId}`;
+  const payoutId = await qrWallet.releaseToBuyer({
+    refundId,
     buyerWalletId: outcome.buyerId,
     amount: outcome.amount,
-    reference: refundId,
+    idempotencyKey: moveId,
+  });
+  await recordLedgerMove({
+    moveId,
+    type: 'refund_release',
+    currency: outcome.amount.currency,
+    deltas: { escrow: -outcome.amount.minorUnits },
+    ref: { refundId, orderId: outcome.orderId },
+    externalTxnId: payoutId,
   });
 
   await finalizeRefund(refundId, outcome.orderId, outcome.amount, payoutId);
@@ -173,8 +185,10 @@ async function finalizeRefund(
     if (!orderSnap.exists) throw new HttpsError('not-found', 'Order missing.');
     const order = orderSnap.data()!;
 
-    const total = order.total as Money;
-    const fullyRefunded = amount.minorUnits >= total.minorUnits;
+    // Compare against the escrowed amount (subtotal), since that is what can be
+    // refunded — the up-front total also includes the payment fee.
+    const subtotal = order.subtotal as Money;
+    const fullyRefunded = amount.minorUnits >= subtotal.minorUnits;
 
     tx.update(refundRef, {
       status: 'refunded',

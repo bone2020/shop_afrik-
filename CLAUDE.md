@@ -25,17 +25,36 @@ Nigeria are only the first launch markets. Therefore:
 - **Money always carries its currency** (`Money`); amounts in different
   currencies are never combined or compared (the `Money` types throw if you
   try). Refund tiers are configured per currency.
+- **Never assume 2 decimals.** Minor-unit conversions and formatting go through
+  the ISO 4217 exponent (`CurrencyMeta` in Dart, `currency.ts` in TS):
+  TND/LYD = 3, DJF/KMF = 0, MRU/MGA subdivide by 5 (treated as 0), rest = 2.
 
-## Architecture (plan §4)
+## Architecture: platform wallet (Option A)
+
+Shop Afrik does **not** build its own wallet. QR Wallet hosts a dedicated,
+segregated **Shop Afrik platform account** (separate from QR Wallet's own
+revenue). Shop Afrik is the brain (records + marketplace logic + dashboard);
+QR Wallet is the vault (holds the money). Buyers, sellers, and the platform
+account all live in QR Wallet, so money moves are **internal QR Wallet
+transfers** — no cross-company settlement.
 
 - **Shop Afrik Flutter app** — buyer, seller, and admin experiences.
-- **Shop Afrik Firebase project** — its own project, separate from QR Wallet.
-  Holds products, orders, sellers, buyers, refunds, settlements, audit logs.
-- **Shop Afrik Cloud Functions** — order creation, QR payload generation,
-  payment confirmation, settlement jobs, refund workflow, permissions.
-- **QR Wallet Firebase project** — business wallet, QR signing, sendMoney,
-  refunds, holds, KYC. Integrate via Cloud Functions; do **not** refactor
-  QR Wallet. Use the business-wallet pattern (the lower-risk decision in §4).
+- **Shop Afrik Firebase project** — products, orders, sellers, buyers, refunds,
+  settlements, audit logs, and the platform-account mirror (`platform_balances`,
+  `platform_ledger`, `reconciliations`).
+- **Shop Afrik Cloud Functions** — order creation, QR payload, payment
+  confirmation, settlement, refund workflow, permissions, and instructing
+  platform-account moves.
+- **QR Wallet platform account** — three internal buckets **per currency**:
+  escrow (buyer funds held), payable (seller earnings owed), commission
+  (Shop Afrik revenue — the only bucket that is revenue). Exposes a secure API
+  for hold/escrow, release-to-buyer, settle-into-payable+commission,
+  pay-out-to-seller, and read balances, with explicit currency + idempotency
+  keys + signed callbacks. **All calls go through `functions/src/lib/qrWallet.ts`**
+  — the one seam. Do **not** refactor QR Wallet; that work lives in its own repo
+  (`bone2020/Claude_qr_wallet`).
+- Shop Afrik keeps its own ledger reconciling against the account
+  (`reconcilePlatformAccount`).
 
 ## Conventions
 
@@ -94,6 +113,11 @@ firebase emulators:start
   `refundTiersByCurrency` (plan §10 seeds: NGN 50,000 / 300,000). Tier 2
   requires admin + supervisor. Thresholds are never compared across currencies.
 - Seller KYC required (via QR Wallet) before seller approval.
+- **Delivery is admin-set per order**, not a flat/auto-calculated fee, and is
+  not baked into the up-front order total (the product-vs-quote checkout flow is
+  undecided). `Order.deliveryFee` is null until an admin sets it.
+- **Only commission is revenue.** Escrow and payable are liabilities; never
+  label a whole balance "revenue" and never blend currencies in the dashboard.
 
 ## Secrets
 

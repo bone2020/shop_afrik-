@@ -5,6 +5,7 @@ import { writeAudit } from '../lib/audit';
 import { notify } from '../lib/notify';
 import { commissionFor, loadSettings } from '../config';
 import { formatMoney } from '../lib/currency';
+import { recordLedgerMove } from '../lib/ledger';
 import * as qrWallet from '../lib/qrWallet';
 import { Collections, Money, OrderItem, applyRate, money } from '../types';
 
@@ -75,10 +76,45 @@ export const settleDueOrders = onSchedule('every day 02:00', async () => {
         const sellerWalletId =
           (sellerSnap.data()?.qrWalletId as string) ?? sellerId;
 
-        const payoutId = await qrWallet.settleToSeller({
+        // Move 1: settle the order's escrow into the seller's payable bucket
+        // and Shop Afrik's commission bucket. escrow -gross -> payable +net,
+        // commission +commission.
+        const settleMoveId = `settle_${settlementId}`;
+        await qrWallet.settleToPayable({
+          orderId: orderDoc.id,
+          sellerId,
+          gross,
+          commission,
+          idempotencyKey: settleMoveId,
+        });
+        await recordLedgerMove({
+          moveId: settleMoveId,
+          type: 'settle',
+          currency: gross.currency,
+          deltas: {
+            escrow: -gross.minorUnits,
+            payable: net.minorUnits,
+            commission: commission.minorUnits,
+          },
+          ref: { orderId: orderDoc.id, sellerId, settlementId },
+        });
+
+        // Move 2: pay the seller's payable out to their QR Wallet.
+        // payable -net -> seller wallet.
+        const payoutMoveId = `payout_${settlementId}`;
+        const payoutId = await qrWallet.payoutToSeller({
+          settlementId,
           sellerWalletId,
           amount: net,
-          reference: settlementId,
+          idempotencyKey: payoutMoveId,
+        });
+        await recordLedgerMove({
+          moveId: payoutMoveId,
+          type: 'payout',
+          currency: net.currency,
+          deltas: { payable: -net.minorUnits },
+          ref: { orderId: orderDoc.id, sellerId, settlementId },
+          externalTxnId: payoutId,
         });
 
         await settlementRef.set({

@@ -14,3 +14,5 @@ export { confirmDelivery } from './orders/confirmDelivery';
 export { decideRefund } from './refunds/decideRefund';
 
 export { settleDueOrders } from './settlement/settleDueOrders';
+
+export { reconcilePlatformAccount } from './platform/reconcile';

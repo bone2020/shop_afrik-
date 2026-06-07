@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../lib/admin';
 import { requireAuth } from '../lib/guards';
 import { notify } from '../lib/notify';
+import { recordLedgerMove } from '../lib/ledger';
 import * as qrWallet from '../lib/qrWallet';
 import { Collections, Money } from '../types';
 
@@ -36,7 +37,11 @@ export const confirmPayment = onCall(async (req) => {
     const order = orderSnap.data()!;
 
     if (order.paymentStatus === 'paid') {
-      return { alreadyPaid: true, buyerId: order.buyerId as string };
+      return {
+        alreadyPaid: true,
+        buyerId: order.buyerId as string,
+        subtotal: order.subtotal as Money,
+      };
     }
 
     const total = order.total as Money;
@@ -72,10 +77,34 @@ export const confirmPayment = onCall(async (req) => {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    return { alreadyPaid: false, buyerId: order.buyerId as string };
+    return {
+      alreadyPaid: false,
+      buyerId: order.buyerId as string,
+      subtotal: order.subtotal as Money,
+    };
   });
 
   if (!result.alreadyPaid) {
+    // Hold the seller-attributable amount (subtotal) into the order's escrow
+    // bucket in the platform account, then mirror the move in Shop Afrik's
+    // ledger. The deterministic id is also the QR Wallet idempotency key.
+    const moveId = `escrow_hold_${orderId}`;
+    const escrowed = result.subtotal;
+    const externalTxnId = await qrWallet.holdToEscrow({
+      orderId,
+      buyerWalletId: result.buyerId,
+      amount: escrowed,
+      idempotencyKey: moveId,
+    });
+    await recordLedgerMove({
+      moveId,
+      type: 'escrow_hold',
+      currency: escrowed.currency,
+      deltas: { escrow: escrowed.minorUnits },
+      ref: { orderId },
+      externalTxnId,
+    });
+
     await notify({
       recipientId: result.buyerId,
       audience: 'buyer',

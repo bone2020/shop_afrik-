@@ -154,6 +154,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---- platform account mirror ----
+    // Shop Afrik's own record of the three buckets per currency, its ledger,
+    // and reconciliation runs. Server-written (Cloud Functions); admins read.
+    match /platform_balances/{currency} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /platform_ledger/{moveId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /reconciliations/{runId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Default deny.
     match /{document=**} {
       allow read, write: if false;

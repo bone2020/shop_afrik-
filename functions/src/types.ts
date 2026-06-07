@@ -13,6 +13,11 @@ export const Collections = {
   notifications: 'notifications',
   adminAudit: 'admin_audit',
   settings: 'settings',
+  // Platform-account mirror: Shop Afrik's own record of the three buckets per
+  // currency, reconciled against the QR Wallet platform account.
+  platformBalances: 'platform_balances',
+  platformLedger: 'platform_ledger',
+  reconciliations: 'reconciliations',
 } as const;
 
 export const PLATFORM_SETTINGS_DOC = 'platform';
