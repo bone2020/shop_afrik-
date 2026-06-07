@@ -33,7 +33,7 @@ abstract final class AppTheme {
         elevation: 0,
         centerTitle: false,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.panelDark,
         elevation: 0,
         shape: RoundedRectangleBorder(

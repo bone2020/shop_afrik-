@@ -21,7 +21,7 @@ void main() {
 
     test('adding a country is pure config — no code change', () {
       // Simulate an admin adding Kenya via the platform settings document.
-      final s = PlatformSettings.fromMap({
+      final s = PlatformSettings.fromMap(const {
         'markets': {
           'KE': {
             'countryCode': 'KE',
