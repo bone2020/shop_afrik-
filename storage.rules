@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Shop Afrik Cloud Storage rules.
+//
+// Product images and store logos are publicly readable (they appear in the
+// catalog); writes are scoped to the owning seller. Refund evidence is private
+// to the uploading buyer and admins.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return isSignedIn() ? request.auth.token.role : '';
+    }
+    function isAdmin() {
+      return role() == 'admin';
+    }
+    // Reject anything larger than 8 MB or not an image.
+    function isValidImage() {
+      return request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Product images: public read, seller-owner write.
+    match /products/{sellerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn()
+                   && request.auth.uid == sellerId
+                   && isValidImage();
+    }
+
+    // Store logos: public read, seller-owner write.
+    match /sellers/{sellerId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn()
+                   && request.auth.uid == sellerId
+                   && isValidImage();
+    }
+
+    // Refund evidence: private to the uploading buyer and admins.
+    match /refund_evidence/{buyerId}/{allPaths=**} {
+      allow read: if (isSignedIn() && request.auth.uid == buyerId) || isAdmin();
+      allow write: if isSignedIn()
+                   && request.auth.uid == buyerId
+                   && isValidImage();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

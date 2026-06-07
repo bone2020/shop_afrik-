@@ -33,12 +33,39 @@ authoritative spec is `docs/planning/Shop_Afrik_Project_Plan_and_Roadmap.pdf`
 
 ## Commands
 
+App:
+
 ```bash
 flutter pub get      # install deps
 flutter run          # run the app
 flutter test         # run tests
 flutter analyze      # static analysis
 ```
+
+Backend (Cloud Functions, in `functions/`):
+
+```bash
+npm install
+npm run build        # tsc compile + typecheck
+npm run lint
+firebase emulators:start
+```
+
+## Backend conventions
+
+- **Roles are custom auth claims** (`role`, `adminTier`). They are granted only
+  by `setUserRole` and `approveSeller`. The Firestore and Storage rules read
+  these claims — never trust client-set role fields.
+- **Money flows through Cloud Functions only.** Orders, settlements, refund
+  decisions, and audit entries are server-written; the rules make those paths
+  read-only/closed to clients (the Admin SDK bypasses rules).
+- **All QR Wallet calls go through `functions/src/lib/qrWallet.ts`** — the one
+  seam to the QR Wallet project. Do not call QR Wallet elsewhere.
+- **Money is integer minor units** (`Money` in Dart, `Money` in TS). Never use
+  floats for amounts.
+- Keep the Dart enums (`lib/core/models/enums.dart`) and the TS types
+  (`functions/src/types.ts`) in sync — they encode the same state machines.
+- `admin_audit` is append-only: never update or delete entries.
 
 ## Key business rules (plan §6)
 

@@ -36,6 +36,17 @@ abstract final class AppConfig {
   /// Platform commission as a fraction of the seller subtotal (15%).
   static const double defaultCommissionRate = 0.15;
 
+  /// Payment processing fee charged to the buyer as a separate checkout line
+  /// item (plan §6). Fraction of the subtotal.
+  static const double defaultPaymentFeeRate = 0.015;
+
+  /// Flat delivery fee per market, in that market's minor currency units
+  /// (basic delivery fee model, plan §3 Logistics). GHS 15.00 / NGN 1500.00.
+  static const Map<String, int> defaultDeliveryFeeByMarket = {
+    'GH': 1500,
+    'NG': 150000,
+  };
+
   /// Refund window measured from courier-confirmed delivery.
   static const Duration refundWindow = Duration(days: 7);
 
