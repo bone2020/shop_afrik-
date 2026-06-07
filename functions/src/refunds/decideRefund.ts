@@ -44,7 +44,12 @@ export const decideRefund = onCall(async (req) => {
     }
 
     const amount = r.amount as Money;
-    const tier = refundTierFor(amount.minorUnits, settings);
+    let tier;
+    try {
+      tier = refundTierFor(amount.minorUnits, amount.currency, settings);
+    } catch (e) {
+      throw new HttpsError('failed-precondition', (e as Error).message);
+    }
 
     if (decision === 'reject') {
       tx.update(refundRef, {

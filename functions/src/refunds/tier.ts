@@ -1,18 +1,27 @@
-import { PlatformSettings } from '../config';
+import { PlatformSettings, refundTiersFor } from '../config';
 import { RefundTier } from '../types';
 
 /**
- * Derives the required approval tier for a refund amount (plan §10).
- * Amounts are compared in NGN-equivalent minor units against the configured
- * ceilings. Recomputed server-side — never trust a client-supplied tier.
+ * Derives the required approval tier for a refund (plan §10), comparing the
+ * amount against the ceilings configured **for its own currency**. Thresholds
+ * are never compared across currencies, and the currency must be configured —
+ * an unknown currency is a configuration error, not a silent default.
  */
 export function refundTierFor(
   amountMinorUnits: number,
+  currency: string,
   settings: PlatformSettings,
 ): RefundTier {
-  // Ceilings in the plan are given in whole NGN; compare in minor units.
-  const tier1 = settings.refundTier1Ceiling * 100;
-  const tier2 = settings.refundTier2Ceiling * 100;
+  const ceilings = refundTiersFor(settings, currency);
+  if (!ceilings) {
+    throw new Error(
+      `No refund tier ceilings configured for currency ${currency}. ` +
+        'Add a row to platform settings refundTiersByCurrency.',
+    );
+  }
+  // Ceilings are in whole-currency units; compare in minor units.
+  const tier1 = ceilings.tier1 * 100;
+  const tier2 = ceilings.tier2 * 100;
   if (amountMinorUnits <= tier1) return 'tier1';
   if (amountMinorUnits <= tier2) return 'tier2';
   return 'exceptional';

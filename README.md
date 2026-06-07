@@ -2,7 +2,9 @@
 
 A multi-seller African e-commerce marketplace, mobile-first in Flutter and
 integrated with **QR Wallet** for payments, refunds, and day-8 seller
-settlement.
+settlement. It targets every country QR Wallet operates in (~20+); Ghana and
+Nigeria are the first launch markets. Markets and currencies are **config**, so
+expanding to a new country is a config change, not a code change.
 
 See [`docs/planning/Shop_Afrik_Project_Plan_and_Roadmap.pdf`](docs/planning/Shop_Afrik_Project_Plan_and_Roadmap.pdf)
 for the full product plan and technical roadmap.

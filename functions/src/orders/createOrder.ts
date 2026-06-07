@@ -2,7 +2,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../lib/admin';
 import { requireAuth } from '../lib/guards';
-import { loadSettings } from '../config';
+import { loadSettings, marketFor, paymentFeeRateFor } from '../config';
 import * as qrWallet from '../lib/qrWallet';
 import {
   Collections,
@@ -39,6 +39,16 @@ export const createOrder = onCall(async (req) => {
   }
 
   const settings = await loadSettings();
+
+  // Market is data: it must be a configured, enabled country. No GH/NG (or
+  // any country) branching — behaviour is read from the market row.
+  const marketCfg = marketFor(settings, market);
+  if (!marketCfg || !marketCfg.enabled) {
+    throw new HttpsError(
+      'failed-precondition',
+      `Market ${market} is not available.`,
+    );
+  }
 
   const order = await db.runTransaction(async (tx) => {
     const items: OrderItem[] = [];
@@ -87,11 +97,25 @@ export const createOrder = onCall(async (req) => {
     }
 
     const sub = subtotal!;
-    const paymentFee = applyRate(sub, settings.paymentFeeRate);
-    const deliveryFee = money(
-      settings.deliveryFeeByMarket[market] ?? 0,
-      sub.currency,
-    );
+    // The cart currency must match the market currency — never mix currencies.
+    if (sub.currency !== marketCfg.currency) {
+      throw new HttpsError(
+        'failed-precondition',
+        `Cart currency ${sub.currency} does not match market ${market} ` +
+          `currency ${marketCfg.currency}.`,
+      );
+    }
+
+    // Optional per-market minimum order amount.
+    if (marketCfg.minOrderMinor != null && sub.minorUnits < marketCfg.minOrderMinor) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Order is below the minimum for this market.',
+      );
+    }
+
+    const paymentFee = applyRate(sub, paymentFeeRateFor(settings, market));
+    const deliveryFee = money(marketCfg.deliveryFeeMinor, marketCfg.currency);
     const total = addMoney(addMoney(sub, paymentFee), deliveryFee);
 
     const orderRef = db.collection(Collections.orders).doc();

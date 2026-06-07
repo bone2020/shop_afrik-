@@ -6,10 +6,11 @@ import 'package:flutter/foundation.dart';
 class Money {
   const Money({required this.minorUnits, required this.currency});
 
-  /// Amount in the currency's smallest unit (1 GHS = 100 pesewas).
+  /// Amount in the currency's smallest unit (e.g. 1 major unit = 100 minor).
   final int minorUnits;
 
-  /// ISO-4217 code, e.g. `GHS`, `NGN`.
+  /// ISO-4217 code. Money always carries its currency; amounts in different
+  /// currencies are never combined or compared.
   final String currency;
 
   double get major => minorUnits / 100.0;
@@ -32,20 +33,31 @@ class Money {
   Money applyRate(double rate) =>
       Money(minorUnits: (minorUnits * rate).round(), currency: currency);
 
+  /// Throws (in all build modes) if [other] is a different currency. Money in
+  /// different currencies must never be combined or compared.
   void _assertSameCurrency(Money other) {
-    assert(
-      currency == other.currency,
-      'Currency mismatch: $currency vs ${other.currency}',
-    );
+    if (currency != other.currency) {
+      throw ArgumentError(
+        'Cannot combine money across currencies: $currency vs ${other.currency}',
+      );
+    }
   }
 
   Map<String, dynamic> toMap() =>
       {'minorUnits': minorUnits, 'currency': currency};
 
-  factory Money.fromMap(Map<String, dynamic>? map) => Money(
-        minorUnits: (map?['minorUnits'] as num?)?.toInt() ?? 0,
-        currency: map?['currency'] as String? ?? 'GHS',
-      );
+  /// Deserializes money, requiring a currency — money without a currency is a
+  /// data error, not a defaultable value.
+  factory Money.fromMap(Map<String, dynamic>? map) {
+    final currency = map?['currency'] as String?;
+    if (currency == null || currency.isEmpty) {
+      throw ArgumentError('Money is missing its currency: $map');
+    }
+    return Money(
+      minorUnits: (map?['minorUnits'] as num?)?.toInt() ?? 0,
+      currency: currency,
+    );
+  }
 
   static Money zero(String currency) =>
       Money(minorUnits: 0, currency: currency);

@@ -9,6 +9,23 @@ African markets, integrated with **QR Wallet** for payments. The
 authoritative spec is `docs/planning/Shop_Afrik_Project_Plan_and_Roadmap.pdf`
 — read it before making product decisions.
 
+## Multi-country (read this first)
+
+Shop Afrik targets **every country QR Wallet operates in** (~20–22). Ghana and
+Nigeria are only the first launch markets. Therefore:
+
+- **Country and currency are data, not assumptions.** Supported markets,
+  currency codes, payment-fee %, delivery fees, refund-tier thresholds, and
+  validation come from config / `platform_settings`, keyed by country code or
+  currency — never hardcoded, never branched on (`if GH …`).
+- **Adding a country is a config change only** (a new market row), never a code
+  change. The seed market rows live in exactly one place per language:
+  `AppConfig.seedMarkets` (Dart) and `DEFAULT_SETTINGS.markets` (TS).
+- **No logic may assume a fixed number of markets** or compare across markets.
+- **Money always carries its currency** (`Money`); amounts in different
+  currencies are never combined or compared (the `Money` types throw if you
+  try). Refund tiers are configured per currency.
+
 ## Architecture (plan §4)
 
 - **Shop Afrik Flutter app** — buyer, seller, and admin experiences.
@@ -73,8 +90,9 @@ firebase emulators:start
 - Refund window: 7 days from courier-confirmed delivery.
 - Settlement: day 8 after delivery (after refund window closes).
 - Partial refunds allowed for multi-item orders; single-item is all-or-nothing.
-- Refund approval is tiered: tier 1 ≤ NGN 50,000; tier 2 (admin+supervisor)
-  ≤ NGN 300,000.
+- Refund approval is tiered, with ceilings configured **per currency** in
+  `refundTiersByCurrency` (plan §10 seeds: NGN 50,000 / 300,000). Tier 2
+  requires admin + supervisor. Thresholds are never compared across currencies.
 - Seller KYC required (via QR Wallet) before seller approval.
 
 ## Secrets

@@ -1,20 +1,25 @@
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
+import 'market_config.dart';
+import 'money.dart';
 
 /// Admin-configurable platform settings, stored at `settings/platform`
-/// (plan §6, §10). This is the runtime source of truth for values the plan
-/// describes as admin-configurable; [AppConfig] only provides seed defaults.
+/// (plan §6, §10). This is the runtime source of truth for everything the plan
+/// describes as admin-configurable, including the full set of markets and the
+/// per-currency refund thresholds. [AppConfig] only provides seed defaults.
+///
+/// Country/currency behaviour is read from here, keyed by country code or
+/// currency — no logic branches on a specific country.
 @immutable
 class PlatformSettings {
   const PlatformSettings({
     this.commissionRate = AppConfig.defaultCommissionRate,
     this.paymentFeeRate = AppConfig.defaultPaymentFeeRate,
-    this.deliveryFeeByMarket = AppConfig.defaultDeliveryFeeByMarket,
+    this.markets = AppConfig.seedMarkets,
+    this.refundTiersByCurrency = AppConfig.seedRefundTiers,
     this.refundWindowDays = 7,
     this.settlementDelayDays = 8,
-    this.refundTier1Ceiling = AppConfig.refundTier1Ceiling,
-    this.refundTier2Ceiling = AppConfig.refundTier2Ceiling,
     this.lowStockThresholdRatio = AppConfig.lowStockThresholdRatio,
     this.maxProductsPerSeller = AppConfig.maxProductsPerSeller,
     this.commissionByCategory = const {},
@@ -23,21 +28,46 @@ class PlatformSettings {
   /// Global commission rate (plan §6: start at 15%).
   final double commissionRate;
 
-  /// Buyer-paid payment processing fee, as a fraction of subtotal (plan §6).
+  /// Global buyer-paid payment-fee rate; markets may override per-row.
   final double paymentFeeRate;
 
-  /// Flat delivery fee per market in minor currency units (plan §3).
-  final Map<String, int> deliveryFeeByMarket;
+  /// Every market Shop Afrik operates in, keyed by ISO country code.
+  final Map<String, MarketConfig> markets;
+
+  /// Refund approval ceilings keyed by currency (never compared across
+  /// currencies).
+  final Map<String, RefundTierCeilings> refundTiersByCurrency;
+
   final int refundWindowDays;
   final int settlementDelayDays;
-  final num refundTier1Ceiling;
-  final num refundTier2Ceiling;
   final double lowStockThresholdRatio;
   final int maxProductsPerSeller;
 
   /// Optional per-category overrides of [commissionRate] (plan §6 "later per
   /// category"), keyed by category id.
   final Map<String, double> commissionByCategory;
+
+  // --- lookups (config-driven; no hardcoded countries/currencies) ---
+
+  /// Markets currently open for transactions.
+  Iterable<MarketConfig> get enabledMarkets =>
+      markets.values.where((m) => m.enabled);
+
+  MarketConfig? marketFor(String countryCode) => markets[countryCode];
+
+  bool isMarketEnabled(String countryCode) =>
+      markets[countryCode]?.enabled ?? false;
+
+  /// Effective payment-fee rate for a market (per-market override or global).
+  double paymentFeeRateFor(String countryCode) =>
+      markets[countryCode]?.paymentFeeRate ?? paymentFeeRate;
+
+  /// Delivery fee for a market, carrying that market's currency.
+  Money? deliveryFeeFor(String countryCode) => markets[countryCode]?.deliveryFee;
+
+  /// Refund ceilings for a currency, or null if that currency is unconfigured.
+  RefundTierCeilings? refundTiersFor(String currency) =>
+      refundTiersByCurrency[currency];
 
   /// Effective commission rate for a category, falling back to the global rate.
   double commissionFor(String? categoryId) =>
@@ -46,11 +76,11 @@ class PlatformSettings {
   Map<String, dynamic> toMap() => {
         'commissionRate': commissionRate,
         'paymentFeeRate': paymentFeeRate,
-        'deliveryFeeByMarket': deliveryFeeByMarket,
+        'markets': markets.map((k, v) => MapEntry(k, v.toMap())),
+        'refundTiersByCurrency':
+            refundTiersByCurrency.map((k, v) => MapEntry(k, v.toMap())),
         'refundWindowDays': refundWindowDays,
         'settlementDelayDays': settlementDelayDays,
-        'refundTier1Ceiling': refundTier1Ceiling,
-        'refundTier2Ceiling': refundTier2Ceiling,
         'lowStockThresholdRatio': lowStockThresholdRatio,
         'maxProductsPerSeller': maxProductsPerSeller,
         'commissionByCategory': commissionByCategory,
@@ -61,16 +91,22 @@ class PlatformSettings {
             AppConfig.defaultCommissionRate,
         paymentFeeRate: (map['paymentFeeRate'] as num?)?.toDouble() ??
             AppConfig.defaultPaymentFeeRate,
-        deliveryFeeByMarket: (map['deliveryFeeByMarket'] as Map?)?.map(
-              (k, v) => MapEntry(k as String, (v as num).toInt()),
+        markets: (map['markets'] as Map?)?.map(
+              (k, v) => MapEntry(
+                k as String,
+                MarketConfig.fromMap((v as Map).cast<String, dynamic>()),
+              ),
             ) ??
-            AppConfig.defaultDeliveryFeeByMarket,
+            AppConfig.seedMarkets,
+        refundTiersByCurrency: (map['refundTiersByCurrency'] as Map?)?.map(
+              (k, v) => MapEntry(
+                k as String,
+                RefundTierCeilings.fromMap((v as Map).cast<String, dynamic>()),
+              ),
+            ) ??
+            AppConfig.seedRefundTiers,
         refundWindowDays: (map['refundWindowDays'] as num?)?.toInt() ?? 7,
         settlementDelayDays: (map['settlementDelayDays'] as num?)?.toInt() ?? 8,
-        refundTier1Ceiling:
-            map['refundTier1Ceiling'] as num? ?? AppConfig.refundTier1Ceiling,
-        refundTier2Ceiling:
-            map['refundTier2Ceiling'] as num? ?? AppConfig.refundTier2Ceiling,
         lowStockThresholdRatio:
             (map['lowStockThresholdRatio'] as num?)?.toDouble() ??
                 AppConfig.lowStockThresholdRatio,

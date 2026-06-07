@@ -1,30 +1,74 @@
 import { db } from './lib/admin';
-import { Collections, PLATFORM_SETTINGS_DOC } from './types';
+import { Collections, PLATFORM_SETTINGS_DOC, Money, money } from './types';
+
+/** Per-country market configuration (mirrors Dart `MarketConfig`). */
+export interface MarketConfig {
+  countryCode: string;
+  currency: string;
+  dialCode: string;
+  label: string;
+  enabled: boolean;
+  /** Flat delivery fee in minor units of `currency`. */
+  deliveryFeeMinor: number;
+  /** Optional per-market payment-fee rate override (falls back to global). */
+  paymentFeeRate?: number;
+  /** Optional minimum order amount in minor units of `currency`. */
+  minOrderMinor?: number;
+}
+
+/** Refund ceilings for one currency, in MAJOR units (mirrors Dart). */
+export interface RefundTierCeilings {
+  tier1: number;
+  tier2: number;
+}
 
 /** Admin-configurable platform settings (mirrors Dart `PlatformSettings`). */
 export interface PlatformSettings {
   commissionRate: number;
   paymentFeeRate: number;
-  deliveryFeeByMarket: Record<string, number>;
+  /** Every market Shop Afrik operates in, keyed by ISO country code. */
+  markets: Record<string, MarketConfig>;
+  /** Refund ceilings keyed by currency — never compared across currencies. */
+  refundTiersByCurrency: Record<string, RefundTierCeilings>;
   refundWindowDays: number;
   settlementDelayDays: number;
-  refundTier1Ceiling: number;
-  refundTier2Ceiling: number;
   lowStockThresholdRatio: number;
   maxProductsPerSeller: number;
   commissionByCategory: Record<string, number>;
 }
 
 // Seed defaults from the project plan (§6, §10). The Firestore document at
-// settings/platform overrides these at runtime.
+// settings/platform overrides these at runtime. Shop Afrik serves every
+// country QR Wallet operates in; Ghana and Nigeria are merely the first two
+// market rows. Adding a country is a config change here (or in Firestore),
+// never a code change.
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionRate: 0.15,
   paymentFeeRate: 0.015,
-  deliveryFeeByMarket: { GH: 1500, NG: 150000 },
+  markets: {
+    GH: {
+      countryCode: 'GH',
+      currency: 'GHS',
+      dialCode: '+233',
+      label: 'Ghana',
+      enabled: true,
+      deliveryFeeMinor: 1500,
+    },
+    NG: {
+      countryCode: 'NG',
+      currency: 'NGN',
+      dialCode: '+234',
+      label: 'Nigeria',
+      enabled: true,
+      deliveryFeeMinor: 150000,
+    },
+  },
+  refundTiersByCurrency: {
+    NGN: { tier1: 50000, tier2: 300000 },
+    GHS: { tier1: 600, tier2: 3600 },
+  },
   refundWindowDays: 7,
   settlementDelayDays: 8,
-  refundTier1Ceiling: 50000,
-  refundTier2Ceiling: 300000,
   lowStockThresholdRatio: 0.2,
   maxProductsPerSeller: 500,
   commissionByCategory: {},
@@ -47,4 +91,35 @@ export function commissionFor(
     return settings.commissionByCategory[categoryId];
   }
   return settings.commissionRate;
+}
+
+export function marketFor(
+  settings: PlatformSettings,
+  countryCode: string,
+): MarketConfig | undefined {
+  return settings.markets[countryCode];
+}
+
+/** Effective payment-fee rate for a market (per-market override or global). */
+export function paymentFeeRateFor(
+  settings: PlatformSettings,
+  countryCode: string,
+): number {
+  return settings.markets[countryCode]?.paymentFeeRate ?? settings.paymentFeeRate;
+}
+
+/** Delivery fee for a market, carrying that market's currency, or null. */
+export function deliveryFeeFor(
+  settings: PlatformSettings,
+  countryCode: string,
+): Money | null {
+  const m = settings.markets[countryCode];
+  return m ? money(m.deliveryFeeMinor, m.currency) : null;
+}
+
+export function refundTiersFor(
+  settings: PlatformSettings,
+  currency: string,
+): RefundTierCeilings | undefined {
+  return settings.refundTiersByCurrency[currency];
 }
