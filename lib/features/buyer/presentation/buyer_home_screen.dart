@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/routes.dart';
 import '../../../services/session_controller.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import '../application/cart_controller.dart';
 import 'buyer_orders_tab.dart';
 import 'cart_tab.dart';
@@ -28,11 +31,20 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () =>
-                ref.read(sessionControllerProvider.notifier).signOut(),
+          const NotificationsBell(),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'become_seller') {
+                context.push(Routes.buyerBecomeSeller);
+              } else if (value == 'sign_out') {
+                ref.read(sessionControllerProvider.notifier).signOut();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                  value: 'become_seller', child: Text('Become a seller')),
+              PopupMenuItem(value: 'sign_out', child: Text('Sign out')),
+            ],
           ),
         ],
       ),

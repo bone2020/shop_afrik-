@@ -103,6 +103,16 @@ firebase emulators:start
   (`functions/src/types.ts`) in sync — they encode the same state machines.
 - `admin_audit` is append-only: never update or delete entries.
 
+## Order lifecycle (Integration Spec v2 §5 / §8 B1)
+
+`awaitingDeliveryQuote` → (admin quotes delivery) → `awaitingPayment` →
+(buyer pays: pay-now = capture seam, pay-on-delivery = hold seam) → `confirmed`
+→ (seller ships — **cancellation cutoff**) → `shipped` → (admin/delivery marks;
+POD capture trigger) → `delivered` → (day-8 settlement) → `completed`. Buyer may
+cancel only before `shipped` (refund-from-escrow / release-hold). Allowed
+transitions live in `OrderStatus` (Dart) and `ORDER_TRANSITIONS` (TS); the money
+seam stays inert — never fake a payment/capture/settlement.
+
 ## Key business rules (plan §6)
 
 - Commission: 15% default, admin-configurable.

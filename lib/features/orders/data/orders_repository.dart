@@ -9,6 +9,7 @@ import '../../../core/models/order.dart';
 abstract interface class OrdersRepository {
   Stream<List<ShopOrder>> watchBuyerOrders(String buyerId);
   Stream<List<ShopOrder>> watchSellerOrders(String sellerId);
+  Stream<ShopOrder?> watchOrder(String orderId);
 }
 
 class FirestoreOrdersRepository implements OrdersRepository {
@@ -35,7 +36,21 @@ class FirestoreOrdersRepository implements OrdersRepository {
         .snapshots()
         .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
   }
+
+  @override
+  Stream<ShopOrder?> watchOrder(String orderId) {
+    return _db
+        .collection(Collections.orders)
+        .doc(orderId)
+        .snapshots()
+        .map((d) => d.exists ? ShopOrder.fromMap(d.id, d.data()!) : null);
+  }
 }
+
+final orderProvider =
+    StreamProvider.autoDispose.family<ShopOrder?, String>((ref, id) {
+  return ref.watch(ordersRepositoryProvider).watchOrder(id);
+});
 
 final ordersRepositoryProvider = Provider<OrdersRepository>((ref) {
   return FirestoreOrdersRepository(FirebaseFirestore.instance);

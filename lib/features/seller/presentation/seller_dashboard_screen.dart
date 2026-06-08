@@ -6,6 +6,7 @@ import '../../../core/models/seller.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/session_controller.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import '../data/seller_repository.dart';
 import 'seller_earnings_tab.dart';
 import 'seller_orders_tab.dart';
@@ -25,6 +26,7 @@ class SellerDashboardScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Seller Dashboard'),
           actions: [
+            const NotificationsBell(),
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout),

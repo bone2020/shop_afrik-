@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/util/money_format.dart';
 import '../../../services/session_controller.dart';
@@ -46,6 +48,7 @@ class BuyerOrdersTab extends ConsumerWidget {
                     title: Text('Order ${o.id.substring(0, o.id.length.clamp(0, 6))}'),
                     subtitle: Text('$count item(s) · ${formatMoney(o.total)}'),
                     trailing: OrderStatusChip(status: o.status),
+                    onTap: () => context.push(Routes.buyerOrder(o.id)),
                   ),
                 );
               },

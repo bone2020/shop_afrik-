@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/presentation/admin_home_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/buyer/presentation/buyer_home_screen.dart';
+import '../../features/buyer/presentation/buyer_order_detail_screen.dart';
 import '../../features/buyer/presentation/checkout_screen.dart';
 import '../../features/buyer/presentation/product_detail_screen.dart';
 import '../../features/seller/presentation/product_edit_screen.dart';
 import '../../features/seller/presentation/seller_dashboard_screen.dart';
+import '../../features/seller/presentation/seller_onboarding_screen.dart';
 import '../../services/session_controller.dart';
 import '../models/user_role.dart';
 import 'routes.dart';
@@ -56,6 +58,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.buyerProductPath,
         builder: (context, state) =>
             ProductDetailScreen(productId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.buyerOrderPath,
+        builder: (context, state) =>
+            BuyerOrderDetailScreen(orderId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: Routes.buyerBecomeSeller,
+        builder: (context, state) => const SellerOnboardingScreen(),
       ),
       // Seller
       GoRoute(

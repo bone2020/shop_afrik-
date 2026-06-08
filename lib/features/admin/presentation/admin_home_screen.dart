@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/session_controller.dart';
+import '../../notifications/presentation/notifications_bell.dart';
 import 'delivery_quote_tab.dart';
 import 'platform_balances_view.dart';
 import 'refund_queue_tab.dart';
@@ -20,6 +21,7 @@ class AdminHomeScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Admin Console'),
           actions: [
+            const NotificationsBell(),
             IconButton(
               tooltip: 'Sign out',
               icon: const Icon(Icons.logout),

@@ -9,6 +9,9 @@ abstract final class Routes {
   static const String buyerCheckout = '/buyer/checkout';
   static const String buyerProductPath = '/buyer/product/:id';
   static String buyerProduct(String id) => '/buyer/product/$id';
+  static const String buyerOrderPath = '/buyer/orders/:id';
+  static String buyerOrder(String id) => '/buyer/orders/$id';
+  static const String buyerBecomeSeller = '/buyer/become-seller';
 
   // Seller
   static const String sellerDashboard = '/seller';
