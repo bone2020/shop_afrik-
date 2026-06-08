@@ -35,3 +35,9 @@ final currentSellerProvider = StreamProvider.autoDispose<Seller?>((ref) {
   if (uid == null) return const Stream.empty();
   return ref.watch(sellerRepositoryProvider).watchSeller(uid);
 });
+
+/// Any seller's public profile, by id (for the storefront page).
+final sellerByIdProvider =
+    StreamProvider.autoDispose.family<Seller?, String>((ref, id) {
+  return ref.watch(sellerRepositoryProvider).watchSeller(id);
+});

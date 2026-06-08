@@ -7,6 +7,7 @@ import '../../features/buyer/presentation/buyer_home_screen.dart';
 import '../../features/buyer/presentation/buyer_order_detail_screen.dart';
 import '../../features/buyer/presentation/checkout_screen.dart';
 import '../../features/buyer/presentation/product_detail_screen.dart';
+import '../../features/buyer/presentation/seller_storefront_screen.dart';
 import '../../features/delivery/presentation/delivery_home_screen.dart';
 import '../../features/seller/presentation/product_edit_screen.dart';
 import '../../features/seller/presentation/seller_dashboard_screen.dart';
@@ -68,6 +69,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.buyerBecomeSeller,
         builder: (context, state) => const SellerOnboardingScreen(),
+      ),
+      GoRoute(
+        path: Routes.buyerStorePath,
+        builder: (context, state) =>
+            SellerStorefrontScreen(sellerId: state.pathParameters['id']!),
       ),
       // Seller
       GoRoute(

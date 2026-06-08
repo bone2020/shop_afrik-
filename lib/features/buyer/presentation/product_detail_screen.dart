@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/models/product.dart';
+import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/util/money_format.dart';
 import '../../reviews/data/reviews_repository.dart';
@@ -105,7 +107,17 @@ class _Detail extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            context.push(Routes.buyerStore(product.sellerId)),
+                        icon: const Icon(Icons.storefront_outlined, size: 18),
+                        label: const Text('Visit store'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Text(product.description),
                     const SizedBox(height: 24),
                     _Reviews(productId: product.id),

@@ -26,6 +26,10 @@ class _FakeCatalog implements CatalogRepository {
   @override
   Stream<Product?> watchProduct(String id) =>
       Stream.value(products.where((p) => p.id == id).firstOrNull);
+
+  @override
+  Stream<List<Product>> watchSellerProducts(String sellerId) =>
+      Stream.value(products.where((p) => p.sellerId == sellerId).toList());
 }
 
 void main() {

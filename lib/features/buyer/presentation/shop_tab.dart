@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/platform_settings_repository.dart';
+import '../../../core/models/platform_settings.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/catalog_repository.dart';
@@ -58,6 +60,7 @@ class ShopTab extends ConsumerWidget {
               ),
             ),
           ),
+          const _SortFilterBar(),
           const SizedBox(height: 4),
           Expanded(
             child: products.when(
@@ -83,6 +86,67 @@ class ShopTab extends ConsumerWidget {
                       ),
                     ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Sort order and currency filter controls.
+class _SortFilterBar extends ConsumerWidget {
+  const _SortFilterBar();
+
+  static const _sortLabels = {
+    ProductSort.newest: 'Newest',
+    ProductSort.priceLowToHigh: 'Price ↑',
+    ProductSort.priceHighToLow: 'Price ↓',
+    ProductSort.topRated: 'Top rated',
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sort = ref.watch(productSortProvider);
+    final currency = ref.watch(currencyFilterProvider);
+    final settings = ref.watch(platformSettingsProvider).valueOrNull ??
+        const PlatformSettings();
+    final currencies = {
+      for (final m in settings.enabledMarkets) m.currency,
+    }.toList()
+      ..sort();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.sort, size: 18, color: AppColors.mutedText),
+          const SizedBox(width: 6),
+          DropdownButton<ProductSort>(
+            value: sort,
+            underline: const SizedBox.shrink(),
+            items: [
+              for (final entry in _sortLabels.entries)
+                DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+            ],
+            onChanged: (v) => v == null
+                ? null
+                : ref.read(productSortProvider.notifier).state = v,
+          ),
+          const Spacer(),
+          const Icon(Icons.payments_outlined,
+              size: 18, color: AppColors.mutedText),
+          const SizedBox(width: 6),
+          DropdownButton<String?>(
+            value: currency,
+            underline: const SizedBox.shrink(),
+            hint: const Text('All'),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('All')),
+              for (final c in currencies)
+                DropdownMenuItem(value: c, child: Text(c)),
+            ],
+            onChanged: (v) =>
+                ref.read(currencyFilterProvider.notifier).state = v,
           ),
         ],
       ),
