@@ -36,11 +36,15 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
             onSelected: (value) {
               if (value == 'become_seller') {
                 context.push(Routes.buyerBecomeSeller);
+              } else if (value == 'addresses') {
+                context.push(Routes.buyerAddresses);
               } else if (value == 'sign_out') {
                 ref.read(sessionControllerProvider.notifier).signOut();
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(
+                  value: 'addresses', child: Text('Saved addresses')),
               PopupMenuItem(
                   value: 'become_seller', child: Text('Become a seller')),
               PopupMenuItem(value: 'sign_out', child: Text('Sign out')),

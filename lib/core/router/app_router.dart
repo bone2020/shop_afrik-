@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/admin/presentation/admin_home_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
+import '../../features/buyer/presentation/address_book_screen.dart';
 import '../../features/buyer/presentation/buyer_home_screen.dart';
 import '../../features/buyer/presentation/buyer_order_detail_screen.dart';
 import '../../features/buyer/presentation/checkout_screen.dart';
@@ -69,6 +70,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.buyerBecomeSeller,
         builder: (context, state) => const SellerOnboardingScreen(),
+      ),
+      GoRoute(
+        path: Routes.buyerAddresses,
+        builder: (context, state) => const AddressBookScreen(),
       ),
       GoRoute(
         path: Routes.buyerStorePath,

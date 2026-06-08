@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/platform_settings_repository.dart';
+import '../../../core/models/buyer.dart';
 import '../../../core/models/order.dart';
 import '../../../core/models/platform_settings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/util/money_format.dart';
 import '../application/cart_controller.dart';
+import '../data/buyer_repository.dart';
 import '../data/order_service.dart';
 
 /// Checkout — phase 1 (Integration Spec v2 §5).
@@ -113,6 +115,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             Text('Delivery location',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
+            _SavedAddressPicker(
+              currency: subtotal.currency,
+              onPick: _applyAddress,
+            ),
             if (markets.isEmpty)
               const _Banner(
                 color: AppColors.dangerCoral,
@@ -170,6 +176,17 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
+  void _applyAddress(Address a) {
+    setState(() {
+      _recipient.text = a.recipientName;
+      _phone.text = a.phone;
+      _address.text = a.line1;
+      _city.text = a.city;
+      _region.text = a.region ?? '';
+      _market = a.market;
+    });
+  }
+
   Future<void> _placeOrder(String market) async {
     if (!_formKey.currentState!.validate()) return;
     final lines = ref.read(cartProvider);
@@ -223,6 +240,47 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             child: const Text('OK'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Lets the buyer prefill the form from a saved address whose market currency
+/// matches the cart currency (currencies are never mixed).
+class _SavedAddressPicker extends ConsumerWidget {
+  const _SavedAddressPicker({required this.currency, required this.onPick});
+
+  final String currency;
+  final ValueChanged<Address> onPick;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final buyer = ref.watch(currentBuyerProvider).valueOrNull;
+    final settings = ref.watch(platformSettingsProvider).valueOrNull ??
+        const PlatformSettings();
+    final matching = (buyer?.addresses ?? const [])
+        .where((a) => settings.marketFor(a.market)?.currency == currency)
+        .toList();
+    if (matching.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        decoration: const InputDecoration(labelText: 'Use a saved address'),
+        items: [
+          for (final a in matching)
+            DropdownMenuItem(
+              value: a.id,
+              child: Text(
+                a.label.isEmpty ? '${a.recipientName} · ${a.city}' : a.label,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: (id) {
+          final a = matching.firstWhere((x) => x.id == id);
+          onPick(a);
+        },
       ),
     );
   }

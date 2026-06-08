@@ -12,6 +12,7 @@ abstract final class Routes {
   static const String buyerOrderPath = '/buyer/orders/:id';
   static String buyerOrder(String id) => '/buyer/orders/$id';
   static const String buyerBecomeSeller = '/buyer/become-seller';
+  static const String buyerAddresses = '/buyer/addresses';
   static const String buyerStorePath = '/buyer/store/:id';
   static String buyerStore(String id) => '/buyer/store/$id';
 
