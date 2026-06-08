@@ -21,4 +21,7 @@ abstract final class Routes {
 
   // Admin
   static const String adminDashboard = '/admin';
+
+  // Delivery
+  static const String deliveryHome = '/delivery';
 }

@@ -94,11 +94,13 @@ service cloud.firestore {
     }
 
     // ---- orders ----
-    // Created and advanced only by Cloud Functions. Clients read their own.
+    // Created and advanced only by Cloud Functions. Clients read their own;
+    // delivery people read the delivery pool to drop off packages.
     match /orders/{orderId} {
       allow read: if isAdmin()
                   || isOwner(resource.data.buyerId)
-                  || (isSeller() && request.auth.uid in resource.data.sellerIds);
+                  || (isSeller() && request.auth.uid in resource.data.sellerIds)
+                  || role() == 'delivery';
       allow write: if false;
     }
 

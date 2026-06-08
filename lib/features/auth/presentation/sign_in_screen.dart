@@ -76,6 +76,12 @@ class SignInScreen extends ConsumerWidget {
                     icon: Icons.admin_panel_settings_outlined,
                     onTap: () => controller.signInAs(UserRole.admin),
                   ),
+                  const SizedBox(height: 12),
+                  _RoleButton(
+                    label: 'Delivery',
+                    icon: Icons.local_shipping_outlined,
+                    onTap: () => controller.signInAs(UserRole.delivery),
+                  ),
                 ],
               ),
             ),

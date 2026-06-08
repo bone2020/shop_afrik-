@@ -1,12 +1,13 @@
-/// The three actor types in the Shop Afrik marketplace (plan §2).
+/// The actor types in the Shop Afrik marketplace (plan §2 + delivery).
 ///
 /// A single authenticated account maps to exactly one active role for a
-/// session. Admins are provisioned out-of-band; buyers and sellers
-/// self-onboard.
+/// session. Admins and delivery people are provisioned out-of-band; buyers and
+/// sellers self-onboard.
 enum UserRole {
   buyer,
   seller,
-  admin;
+  admin,
+  delivery;
 
   static UserRole fromName(String? name) {
     return UserRole.values.firstWhere(

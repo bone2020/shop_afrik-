@@ -98,6 +98,48 @@ class DeliveryLocation {
       );
 }
 
+/// Proof of delivery captured by the delivery person at drop-off: a photo, GPS
+/// coordinates, and a timestamp, plus the scanned package barcode and who
+/// submitted it. Submitting this is what marks the order delivered.
+@immutable
+class DeliveryProof {
+  const DeliveryProof({
+    required this.deliveryPersonId,
+    required this.barcode,
+    this.photoUrl,
+    this.latitude,
+    this.longitude,
+    this.capturedAt,
+  });
+
+  final String deliveryPersonId;
+  final String barcode;
+  final String? photoUrl;
+  final double? latitude;
+  final double? longitude;
+  final DateTime? capturedAt;
+
+  bool get hasLocation => latitude != null && longitude != null;
+
+  Map<String, dynamic> toMap() => {
+        'deliveryPersonId': deliveryPersonId,
+        'barcode': barcode,
+        'photoUrl': photoUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'capturedAt': capturedAt?.toIso8601String(),
+      };
+
+  factory DeliveryProof.fromMap(Map<String, dynamic> map) => DeliveryProof(
+        deliveryPersonId: map['deliveryPersonId'] as String? ?? '',
+        barcode: map['barcode'] as String? ?? '',
+        photoUrl: map['photoUrl'] as String?,
+        latitude: (map['latitude'] as num?)?.toDouble(),
+        longitude: (map['longitude'] as num?)?.toDouble(),
+        capturedAt: DateTime.tryParse(map['capturedAt'] as String? ?? ''),
+      );
+}
+
 /// A buyer order (plan §7 `orders`). Tracks payment, delivery, and settlement
 /// legs independently (plan §5 flow, §6 settlement).
 @immutable
@@ -111,6 +153,7 @@ class ShopOrder {
     required this.total,
     this.deliveryFee,
     this.deliveryLocation,
+    this.deliveryProof,
     this.deliveryQuoteNote,
     this.paymentMethod,
     this.status = OrderStatus.awaitingDeliveryQuote,
@@ -144,6 +187,9 @@ class ShopOrder {
   /// Where the order is delivered (captured at placement so the admin can
   /// quote against a concrete location).
   final DeliveryLocation? deliveryLocation;
+
+  /// Proof of delivery captured at drop-off (null until delivered).
+  final DeliveryProof? deliveryProof;
 
   /// Optional human-readable breakdown the admin attaches to the quote.
   final String? deliveryQuoteNote;
@@ -180,6 +226,7 @@ class ShopOrder {
         'paymentFee': paymentFee.toMap(),
         'deliveryFee': deliveryFee?.toMap(),
         'deliveryLocation': deliveryLocation?.toMap(),
+        'deliveryProof': deliveryProof?.toMap(),
         'deliveryQuoteNote': deliveryQuoteNote,
         'paymentMethod': paymentMethod?.name,
         'total': total.toMap(),
@@ -210,6 +257,10 @@ class ShopOrder {
             ? null
             : DeliveryLocation.fromMap(
                 (map['deliveryLocation'] as Map).cast<String, dynamic>()),
+        deliveryProof: map['deliveryProof'] == null
+            ? null
+            : DeliveryProof.fromMap(
+                (map['deliveryProof'] as Map).cast<String, dynamic>()),
         deliveryQuoteNote: map['deliveryQuoteNote'] as String?,
         paymentMethod: PaymentMethod.fromName(map['paymentMethod'] as String?),
         total: Money.fromMap(map['total'] as Map<String, dynamic>?),

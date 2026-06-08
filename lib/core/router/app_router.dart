@@ -7,6 +7,7 @@ import '../../features/buyer/presentation/buyer_home_screen.dart';
 import '../../features/buyer/presentation/buyer_order_detail_screen.dart';
 import '../../features/buyer/presentation/checkout_screen.dart';
 import '../../features/buyer/presentation/product_detail_screen.dart';
+import '../../features/delivery/presentation/delivery_home_screen.dart';
 import '../../features/seller/presentation/product_edit_screen.dart';
 import '../../features/seller/presentation/seller_dashboard_screen.dart';
 import '../../features/seller/presentation/seller_onboarding_screen.dart';
@@ -87,6 +88,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.adminDashboard,
         builder: (context, state) => const AdminHomeScreen(),
       ),
+      // Delivery
+      GoRoute(
+        path: Routes.deliveryHome,
+        builder: (context, state) => const DeliveryHomeScreen(),
+      ),
     ],
   );
 });
@@ -95,10 +101,12 @@ String _homeFor(UserRole role) => switch (role) {
       UserRole.buyer => Routes.buyerHome,
       UserRole.seller => Routes.sellerDashboard,
       UserRole.admin => Routes.adminDashboard,
+      UserRole.delivery => Routes.deliveryHome,
     };
 
 String _prefixFor(UserRole role) => switch (role) {
       UserRole.buyer => '/buyer',
       UserRole.seller => '/seller',
       UserRole.admin => '/admin',
+      UserRole.delivery => '/delivery',
     };

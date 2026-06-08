@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/session_controller.dart';
 import '../../notifications/presentation/notifications_bell.dart';
+import 'admin_shipments_tab.dart';
 import 'delivery_quote_tab.dart';
 import 'platform_balances_view.dart';
 import 'refund_queue_tab.dart';
@@ -16,7 +17,7 @@ class AdminHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin Console'),
@@ -34,6 +35,7 @@ class AdminHomeScreen extends ConsumerWidget {
             tabs: [
               Tab(text: 'Balances'),
               Tab(text: 'Deliveries'),
+              Tab(text: 'Shipments'),
               Tab(text: 'Sellers'),
               Tab(text: 'Refunds'),
             ],
@@ -43,6 +45,7 @@ class AdminHomeScreen extends ConsumerWidget {
           children: [
             PlatformBalancesView(),
             DeliveryQuoteTab(),
+            AdminShipmentsTab(),
             SellerApprovalTab(),
             RefundQueueTab(),
           ],

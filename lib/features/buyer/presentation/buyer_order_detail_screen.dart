@@ -112,6 +112,8 @@ class _DetailState extends ConsumerState<_Detail> {
           ),
         ],
         const SizedBox(height: 16),
+        _Tracking(order: o),
+        const SizedBox(height: 16),
         ..._actions(o),
       ],
     );
@@ -307,6 +309,111 @@ class _RatingDialogState extends State<_RatingDialog> {
           child: const Text('Submit'),
         ),
       ],
+    );
+  }
+}
+
+/// A simple delivery-tracking timeline of the order's lifecycle milestones,
+/// plus the captured proof of delivery once delivered.
+class _Tracking extends StatelessWidget {
+  const _Tracking({required this.order});
+  final ShopOrder order;
+
+  static const _steps = [
+    'Order placed',
+    'Delivery quoted',
+    'Paid',
+    'Shipped',
+    'Delivered',
+  ];
+
+  int get _progress => switch (order.status) {
+        OrderStatus.awaitingDeliveryQuote => 0,
+        OrderStatus.awaitingPayment => 1,
+        OrderStatus.confirmed => 2,
+        OrderStatus.shipped => 3,
+        OrderStatus.delivered => 4,
+        OrderStatus.completed => 4,
+        OrderStatus.cancelled => -1,
+        OrderStatus.refunded => -1,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    if (order.status == OrderStatus.cancelled ||
+        order.status == OrderStatus.refunded) {
+      return Card(
+        child: ListTile(
+          leading: const Icon(Icons.cancel_outlined,
+              color: AppColors.dangerCoral),
+          title: Text(order.status == OrderStatus.cancelled
+              ? 'Order cancelled'
+              : 'Order refunded'),
+        ),
+      );
+    }
+
+    final proof = order.deliveryProof;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tracking',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            for (var i = 0; i < _steps.length; i++)
+              Row(
+                children: [
+                  Icon(
+                    i <= _progress
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 18,
+                    color: i <= _progress
+                        ? AppColors.primaryTeal
+                        : AppColors.mutedText,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(_steps[i],
+                      style: TextStyle(
+                        color: i <= _progress
+                            ? AppColors.primaryText
+                            : AppColors.mutedText,
+                      )),
+                ],
+              ),
+            if (order.status == OrderStatus.completed)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text('Completed — seller settled.',
+                    style: TextStyle(
+                        color: AppColors.mutedText, fontSize: 12)),
+              ),
+            if (proof != null) ...[
+              const Divider(height: 24),
+              const Text('Proof of delivery',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              if (proof.photoUrl != null)
+                Text('Photo: ${proof.photoUrl}',
+                    style: const TextStyle(
+                        color: AppColors.mutedText, fontSize: 12)),
+              if (proof.hasLocation)
+                Text(
+                    'Location: ${proof.latitude!.toStringAsFixed(5)}, '
+                    '${proof.longitude!.toStringAsFixed(5)}',
+                    style: const TextStyle(
+                        color: AppColors.mutedText, fontSize: 12)),
+              if (proof.capturedAt != null)
+                Text('Time: ${proof.capturedAt!.toLocal()}',
+                    style: const TextStyle(
+                        color: AppColors.mutedText, fontSize: 12)),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

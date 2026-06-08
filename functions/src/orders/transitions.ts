@@ -60,17 +60,28 @@ export const markShipped = onCall(async (req) => {
   return { ok: true };
 });
 
-/**
- * Admin/delivery marks an order delivered (v2 §8 B1). Opens the refund window
- * and schedules day-8 settlement. For pay-on-delivery this is the capture
- * trigger; the capture seam is inert for now, so the delivery is recorded and
- * the capture is left pending rather than faked.
- */
-export const markDelivered = onCall(async (req) => {
-  const adminId = requireRole(req, 'admin');
-  const orderId = req.data?.orderId as string | undefined;
-  if (!orderId) throw new HttpsError('invalid-argument', 'orderId required.');
+interface DeliveryProofInput {
+  deliveryPersonId: string;
+  barcode: string;
+  photoUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
 
+/**
+ * Shared delivery transition (v2 §8 B1): moves an order to `delivered`, opens
+ * the refund window, and schedules day-8 settlement. NOTE: it does NOT complete
+ * the order — `completed` is reached only after the seller is settled on day 8.
+ * For pay-on-delivery this is the capture trigger; the capture seam is inert for
+ * now, so the delivery is recorded and the capture left pending, never faked.
+ *
+ * Used by both the delivery person (with proof) and the admin backup (no proof).
+ */
+async function deliverOrder(
+  orderId: string,
+  actorId: string,
+  proof?: DeliveryProofInput,
+): Promise<void> {
   const settings = await loadSettings();
   const ref = db.collection(Collections.orders).doc(orderId);
 
@@ -87,14 +98,25 @@ export const markDelivered = onCall(async (req) => {
     const dueAt = Timestamp.fromMillis(
       Date.now() + settings.settlementDelayDays * 24 * 60 * 60 * 1000,
     );
-    tx.update(ref, {
+    const update: Record<string, unknown> = {
       status: 'delivered',
       deliveryStatus: 'deliveryConfirmed',
       deliveryConfirmedAt: FieldValue.serverTimestamp(),
       settlementStatus: 'scheduled',
       settlementDueAt: dueAt,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (proof) {
+      update.deliveryProof = {
+        deliveryPersonId: proof.deliveryPersonId,
+        barcode: proof.barcode,
+        photoUrl: proof.photoUrl ?? null,
+        latitude: proof.latitude ?? null,
+        longitude: proof.longitude ?? null,
+        capturedAt: new Date().toISOString(),
+      };
+    }
+    tx.update(ref, update);
     return {
       buyerId: order.buyerId as string,
       paymentMethod: order.paymentMethod as string | null,
@@ -103,10 +125,11 @@ export const markDelivered = onCall(async (req) => {
   });
 
   await writeAudit({
-    actorId: adminId,
+    actorId,
     action: 'order.delivered',
     targetType: 'order',
     targetId: orderId,
+    metadata: { withProof: proof != null },
   });
 
   // Pay-on-delivery: capture the hold into escrow now. Inert for now — record
@@ -146,6 +169,47 @@ export const markDelivered = onCall(async (req) => {
     type: 'order_delivered',
     deepLink: `/buyer/orders/${orderId}`,
   });
+}
+
+/**
+ * Delivery person submits proof of delivery (photo + GPS + timestamp) for a
+ * scanned package. The barcode must match the order id, the order must be
+ * shipped, and submitting marks the order delivered.
+ */
+export const submitProofOfDelivery = onCall(async (req) => {
+  const deliveryPersonId = requireRole(req, 'delivery');
+  const orderId = req.data?.orderId as string | undefined;
+  const barcode = req.data?.barcode as string | undefined;
+  if (!orderId || !barcode) {
+    throw new HttpsError('invalid-argument', 'orderId and barcode required.');
+  }
+  // The package barcode encodes the order id.
+  if (barcode !== orderId) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Scanned barcode does not match this order.',
+    );
+  }
+
+  await deliverOrder(orderId, deliveryPersonId, {
+    deliveryPersonId,
+    barcode,
+    photoUrl: (req.data?.photoUrl as string | undefined) ?? null,
+    latitude: (req.data?.latitude as number | undefined) ?? null,
+    longitude: (req.data?.longitude as number | undefined) ?? null,
+  });
+  return { ok: true };
+});
+
+/**
+ * Admin backup for marking an order delivered, for the rare case the delivery
+ * scan didn't happen.
+ */
+export const markDelivered = onCall(async (req) => {
+  const adminId = requireRole(req, 'admin');
+  const orderId = req.data?.orderId as string | undefined;
+  if (!orderId) throw new HttpsError('invalid-argument', 'orderId required.');
+  await deliverOrder(orderId, adminId);
   return { ok: true };
 });
 

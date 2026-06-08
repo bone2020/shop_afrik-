@@ -23,6 +23,8 @@ class _FakeAdmin implements AdminRepository {
   @override
   Stream<List<ShopOrder>> watchOrdersAwaitingQuote() => const Stream.empty();
   @override
+  Stream<List<ShopOrder>> watchShippedOrders() => const Stream.empty();
+  @override
   Future<void> approveSeller({required String sellerId, required bool approve}) async {}
   @override
   Future<void> decideRefund({

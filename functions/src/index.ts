@@ -10,7 +10,12 @@ export { approveSeller } from './sellers/approveSeller';
 export { createOrder } from './orders/createOrder';
 export { quoteDelivery } from './orders/quoteDelivery';
 export { payOrder } from './orders/payOrder';
-export { markShipped, markDelivered, cancelOrder } from './orders/transitions';
+export {
+  markShipped,
+  markDelivered,
+  cancelOrder,
+  submitProofOfDelivery,
+} from './orders/transitions';
 
 export { decideRefund } from './refunds/decideRefund';
 

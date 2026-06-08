@@ -14,6 +14,7 @@ abstract interface class AdminRepository {
   Stream<List<Seller>> watchPendingSellers();
   Stream<List<RefundRequest>> watchOpenRefunds();
   Stream<List<ShopOrder>> watchOrdersAwaitingQuote();
+  Stream<List<ShopOrder>> watchShippedOrders();
   Future<void> approveSeller({required String sellerId, required bool approve});
   Future<void> decideRefund({
     required String refundId,
@@ -58,6 +59,15 @@ class FirebaseAdminRepository implements AdminRepository {
     return _db
         .collection(Collections.orders)
         .where('status', isEqualTo: 'awaitingDeliveryQuote')
+        .snapshots()
+        .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Stream<List<ShopOrder>> watchShippedOrders() {
+    return _db
+        .collection(Collections.orders)
+        .where('status', isEqualTo: 'shipped')
         .snapshots()
         .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
   }
@@ -122,4 +132,9 @@ final openRefundsProvider =
 final ordersAwaitingQuoteProvider =
     StreamProvider.autoDispose<List<ShopOrder>>((ref) {
   return ref.watch(adminRepositoryProvider).watchOrdersAwaitingQuote();
+});
+
+final shippedOrdersProvider =
+    StreamProvider.autoDispose<List<ShopOrder>>((ref) {
+  return ref.watch(adminRepositoryProvider).watchShippedOrders();
 });

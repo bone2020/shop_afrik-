@@ -107,11 +107,18 @@ firebase emulators:start
 
 `awaitingDeliveryQuote` → (admin quotes delivery) → `awaitingPayment` →
 (buyer pays: pay-now = capture seam, pay-on-delivery = hold seam) → `confirmed`
-→ (seller ships — **cancellation cutoff**) → `shipped` → (admin/delivery marks;
-POD capture trigger) → `delivered` → (day-8 settlement) → `completed`. Buyer may
-cancel only before `shipped` (refund-from-escrow / release-hold). Allowed
-transitions live in `OrderStatus` (Dart) and `ORDER_TRANSITIONS` (TS); the money
-seam stays inert — never fake a payment/capture/settlement.
+→ (seller ships — **cancellation cutoff**) → `shipped` → (delivery person scans
+the package + submits proof, or admin backup; POD capture trigger) →
+`delivered` → (day-8 settlement) → `completed`. Buyer may cancel only before
+`shipped` (refund-from-escrow / release-hold). `delivered` ≠ `completed`:
+delivered starts the 7-day window, completed is only reached once the seller is
+settled (day 8). Allowed transitions live in `OrderStatus` (Dart) and
+`ORDER_TRANSITIONS` (TS); the money seam stays inert — never fake a
+payment/capture/settlement.
+
+There are four roles plus delivery: buyer, seller, admin, and a **delivery
+person** who sees shipped orders and confirms drop-off with proof
+(`submitProofOfDelivery`).
 
 ## Key business rules (plan §6)
 

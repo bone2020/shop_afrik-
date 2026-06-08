@@ -83,7 +83,7 @@ export type RefundStatus =
 
 export type RefundTier = 'tier1' | 'tier2' | 'exceptional';
 
-export type UserRole = 'buyer' | 'seller' | 'admin';
+export type UserRole = 'buyer' | 'seller' | 'admin' | 'delivery';
 export type AdminTier = 'admin' | 'supervisor';
 
 /** A currency amount in integer minor units (mirrors Dart `Money`). */

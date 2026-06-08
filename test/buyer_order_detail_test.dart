@@ -32,6 +32,12 @@ Widget _wrap(ShopOrder order) => ProviderScope(
 
 void main() {
   testWidgets('awaitingPayment shows pay options and cancel', (tester) async {
+    // Tall surface so the lazily-built list lays out all action buttons.
+    tester.view.physicalSize = const Size(1200, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final order = testOrder(
       id: 'order1',
       settlement: SettlementStatus.notDue,
@@ -77,6 +83,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Pay now'), findsNothing);
+    expect(find.text('Cancel order'), findsNothing);
+  });
+
+  testWidgets('delivered order shows tracking and proof of delivery',
+      (tester) async {
+    final base = testOrder(
+      id: 'order3',
+      settlement: SettlementStatus.scheduled,
+      items: [testItem(sellerId: 's1', unitPriceMinor: 5000, currency: 'NGN')],
+    );
+    final delivered = ShopOrder(
+      id: base.id,
+      buyerId: base.buyerId,
+      items: base.items,
+      subtotal: base.subtotal,
+      paymentFee: base.paymentFee,
+      total: base.total,
+      status: OrderStatus.delivered,
+      deliveryProof: DeliveryProof(
+        deliveryPersonId: 'd1',
+        barcode: 'order3',
+        photoUrl: 'https://example.com/p.jpg',
+        latitude: 6.5,
+        longitude: 3.3,
+        capturedAt: DateTime(2026, 6, 1),
+      ),
+    );
+
+    await tester.pumpWidget(_wrap(delivered));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tracking'), findsOneWidget);
+    expect(find.text('Proof of delivery'), findsOneWidget);
+    // Past the cutoff: no cancel.
     expect(find.text('Cancel order'), findsNothing);
   });
 }

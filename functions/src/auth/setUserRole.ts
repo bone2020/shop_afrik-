@@ -22,7 +22,7 @@ export const setUserRole = onCall(async (req) => {
   if (!targetUid || !role) {
     throw new HttpsError('invalid-argument', 'uid and role are required.');
   }
-  if (!['buyer', 'seller', 'admin'].includes(role)) {
+  if (!['buyer', 'seller', 'admin', 'delivery'].includes(role)) {
     throw new HttpsError('invalid-argument', `Unknown role: ${role}`);
   }
 
