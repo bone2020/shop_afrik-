@@ -130,7 +130,12 @@ This writes `lib/firebase_options.dart` (git-ignored). Then enable the
 |-------|---------|
 | 1 | Project setup ✅ |
 | 2 | Backend data model, security rules, Cloud Functions ✅ |
-| 3 | Buyer MVP — shopping, cart, QR checkout, orders *(next)* |
-| 4 | Seller MVP — onboarding, product CRUD, orders, payouts |
-| 5 | Admin MVP — approvals, refunds, commissions, audit logs |
+| 3 | Buyer MVP — browse/search, categories, product detail, cart, checkout ✅ |
+| 4 | Seller MVP — product CRUD/stock, orders, payable per currency, rating ✅ |
+| 5 | Admin MVP — platform balances, seller-approval + tiered refund queues ✅ |
 | 6 | Enhancements — deep links, pay on delivery, analytics |
+
+Screens are wired to Firestore/Functions repositories and tested with fake data
+(money figures stay empty until the QR Wallet half is built). Checkout stops at
+the payment step (the seam is inert — no simulated payments) and deliberately
+keeps delivery out of the total, since the delivery model is undecided.

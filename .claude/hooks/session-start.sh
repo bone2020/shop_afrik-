@@ -11,6 +11,11 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+# Run asynchronously: the session starts immediately while tools install in the
+# background. The agent may need to wait for this to finish before the first
+# analyze/test run on a cold container.
+echo '{"async": true, "asyncTimeout": 600000}'
+
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 FLUTTER_VERSION="3.44.1"
 FLUTTER_HOME="${HOME}/flutter"

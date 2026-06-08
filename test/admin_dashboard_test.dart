@@ -5,7 +5,7 @@ import 'package:shop_afrik/core/models/money.dart';
 import 'package:shop_afrik/core/models/platform_balance.dart';
 import 'package:shop_afrik/core/theme/app_theme.dart';
 import 'package:shop_afrik/features/admin/data/platform_balance_repository.dart';
-import 'package:shop_afrik/features/admin/presentation/admin_dashboard_screen.dart';
+import 'package:shop_afrik/features/admin/presentation/platform_balances_view.dart';
 
 class _FakeRepo implements PlatformBalanceRepository {
   _FakeRepo(this.rows);
@@ -39,7 +39,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: AppTheme.dark,
-          home: const AdminDashboardScreen(),
+          home: const Scaffold(body: PlatformBalancesView()),
         ),
       ),
     );

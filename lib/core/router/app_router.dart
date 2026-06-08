@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/admin/presentation/admin_dashboard_screen.dart';
+import '../../features/admin/presentation/admin_home_screen.dart';
 import '../../features/auth/presentation/sign_in_screen.dart';
 import '../../features/buyer/presentation/buyer_home_screen.dart';
+import '../../features/buyer/presentation/checkout_screen.dart';
+import '../../features/buyer/presentation/product_detail_screen.dart';
+import '../../features/seller/presentation/product_edit_screen.dart';
 import '../../features/seller/presentation/seller_dashboard_screen.dart';
 import '../../services/session_controller.dart';
 import '../models/user_role.dart';
@@ -40,17 +43,38 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: Routes.signIn,
         builder: (context, state) => const SignInScreen(),
       ),
+      // Buyer
       GoRoute(
         path: Routes.buyerHome,
         builder: (context, state) => const BuyerHomeScreen(),
       ),
       GoRoute(
+        path: Routes.buyerCheckout,
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: Routes.buyerProductPath,
+        builder: (context, state) =>
+            ProductDetailScreen(productId: state.pathParameters['id']!),
+      ),
+      // Seller
+      GoRoute(
         path: Routes.sellerDashboard,
         builder: (context, state) => const SellerDashboardScreen(),
       ),
       GoRoute(
+        path: Routes.sellerProductNew,
+        builder: (context, state) => const ProductEditScreen(),
+      ),
+      GoRoute(
+        path: Routes.sellerProductEditPath,
+        builder: (context, state) =>
+            ProductEditScreen(productId: state.pathParameters['id']),
+      ),
+      // Admin
+      GoRoute(
         path: Routes.adminDashboard,
-        builder: (context, state) => const AdminDashboardScreen(),
+        builder: (context, state) => const AdminHomeScreen(),
       ),
     ],
   );

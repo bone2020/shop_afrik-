@@ -6,16 +6,16 @@ abstract final class Routes {
 
   // Buyer
   static const String buyerHome = '/buyer';
-  static const String buyerCart = '/buyer/cart';
-  static const String buyerOrders = '/buyer/orders';
+  static const String buyerCheckout = '/buyer/checkout';
+  static const String buyerProductPath = '/buyer/product/:id';
+  static String buyerProduct(String id) => '/buyer/product/$id';
 
   // Seller
   static const String sellerDashboard = '/seller';
-  static const String sellerProducts = '/seller/products';
-  static const String sellerOrders = '/seller/orders';
+  static const String sellerProductNew = '/seller/product/new';
+  static const String sellerProductEditPath = '/seller/product/:id/edit';
+  static String sellerProductEdit(String id) => '/seller/product/$id/edit';
 
   // Admin
   static const String adminDashboard = '/admin';
-  static const String adminApprovals = '/admin/approvals';
-  static const String adminRefunds = '/admin/refunds';
 }
