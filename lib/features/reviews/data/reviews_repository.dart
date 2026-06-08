@@ -38,3 +38,8 @@ class FirestoreReviewsRepository implements ReviewsRepository {
 final reviewsRepositoryProvider = Provider<ReviewsRepository>((ref) {
   return FirestoreReviewsRepository(FirebaseFirestore.instance);
 });
+
+final productReviewsProvider =
+    StreamProvider.autoDispose.family<List<Review>, String>((ref, productId) {
+  return ref.watch(reviewsRepositoryProvider).watchForProduct(productId);
+});

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
 import '../../../core/models/order.dart';
+import '../../../core/models/product.dart';
 import '../../../core/models/refund_request.dart';
 import '../../../core/models/seller.dart';
 
@@ -15,6 +16,8 @@ abstract interface class AdminRepository {
   Stream<List<RefundRequest>> watchOpenRefunds();
   Stream<List<ShopOrder>> watchOrdersAwaitingQuote();
   Stream<List<ShopOrder>> watchShippedOrders();
+  Stream<List<Product>> watchPendingProducts();
+  Future<void> approveProduct({required String productId, required bool approve});
   Future<void> approveSeller({required String sellerId, required bool approve});
   Future<void> decideRefund({
     required String refundId,
@@ -70,6 +73,25 @@ class FirebaseAdminRepository implements AdminRepository {
         .where('status', isEqualTo: 'shipped')
         .snapshots()
         .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Stream<List<Product>> watchPendingProducts() {
+    return _db
+        .collection(Collections.products)
+        .where('approvalStatus', isEqualTo: 'pending')
+        .snapshots()
+        .map((s) => s.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Future<void> approveProduct({
+    required String productId,
+    required bool approve,
+  }) async {
+    await _functions
+        .httpsCallable('approveProduct')
+        .call({'productId': productId, 'approve': approve});
   }
 
   @override
@@ -137,4 +159,9 @@ final ordersAwaitingQuoteProvider =
 final shippedOrdersProvider =
     StreamProvider.autoDispose<List<ShopOrder>>((ref) {
   return ref.watch(adminRepositoryProvider).watchShippedOrders();
+});
+
+final pendingProductsProvider =
+    StreamProvider.autoDispose<List<Product>>((ref) {
+  return ref.watch(adminRepositoryProvider).watchPendingProducts();
 });

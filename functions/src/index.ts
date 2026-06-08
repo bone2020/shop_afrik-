@@ -6,6 +6,7 @@
 
 export { setUserRole } from './auth/setUserRole';
 export { approveSeller } from './sellers/approveSeller';
+export { approveProduct } from './products/approveProduct';
 
 export { createOrder } from './orders/createOrder';
 export { quoteDelivery } from './orders/quoteDelivery';
@@ -22,3 +23,5 @@ export { decideRefund } from './refunds/decideRefund';
 export { settleDueOrders } from './settlement/settleDueOrders';
 
 export { reconcilePlatformAccount } from './platform/reconcile';
+
+export { onReviewCreated } from './reviews/onReviewCreated';
