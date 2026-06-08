@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,14 +18,28 @@ import '../../services/session_controller.dart';
 import '../models/user_role.dart';
 import 'routes.dart';
 
+/// Bridges the Riverpod session into a [Listenable] so the router re-evaluates
+/// its redirect on sign-in, sign-out, and role-claim changes — without
+/// rebuilding the whole [GoRouter] (which would drop navigation state).
+class _SessionRefresh extends ChangeNotifier {
+  _SessionRefresh(Ref ref) {
+    ref.listen(sessionControllerProvider, (_, __) => notifyListeners());
+  }
+}
+
 /// The app router. Redirects are driven by the current [Session] so each role
 /// lands in its own section and cannot reach another role's routes.
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final session = ref.watch(sessionControllerProvider);
+  final refresh = _SessionRefresh(ref);
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: Routes.signIn,
+    refreshListenable: refresh,
     redirect: (context, state) {
+      // Read (not watch) the latest session at redirect time; refreshes are
+      // driven by refreshListenable above.
+      final session = ref.read(sessionControllerProvider);
       final loggingIn = state.matchedLocation == Routes.signIn;
 
       if (!session.isAuthenticated) {

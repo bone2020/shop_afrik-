@@ -8,6 +8,7 @@ import 'package:shop_afrik/features/delivery/data/delivery_repository.dart';
 import 'package:shop_afrik/features/delivery/presentation/delivery_home_screen.dart';
 
 import 'support/fixtures.dart';
+import 'support/session.dart';
 
 class _FakeDelivery implements DeliveryRepository {
   _FakeDelivery(this.orders);
@@ -52,6 +53,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          stubSession(),
           deliveryRepositoryProvider
               .overrideWithValue(_FakeDelivery([shipped])),
         ],
@@ -68,6 +70,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          stubSession(),
           deliveryRepositoryProvider.overrideWithValue(_FakeDelivery(const [])),
         ],
         child: MaterialApp(theme: AppTheme.dark, home: const DeliveryHomeScreen()),

@@ -9,6 +9,17 @@ import '../../../services/session_controller.dart';
 /// write only their own document (enforced by the rules).
 abstract interface class BuyerRepository {
   Stream<Buyer?> watchBuyer(String uid);
+
+  /// Creates the buyer profile doc on first sign-up, if it does not already
+  /// exist. Buyers write their own doc (owner-based rule), so no role claim is
+  /// needed — a fresh account is a buyer by default.
+  Future<void> createProfileIfAbsent(
+    String uid, {
+    required String name,
+    String? email,
+    String? phone,
+  });
+
   Future<void> upsertAddress(String uid, Address address);
   Future<void> deleteAddress(String uid, String addressId);
   Future<void> setDefaultAddress(String uid, String addressId);
@@ -27,6 +38,29 @@ class FirestoreBuyerRepository implements BuyerRepository {
     return _doc(uid)
         .snapshots()
         .map((d) => d.exists ? Buyer.fromMap(d.id, d.data()!) : null);
+  }
+
+  @override
+  Future<void> createProfileIfAbsent(
+    String uid, {
+    required String name,
+    String? email,
+    String? phone,
+  }) async {
+    final ref = _doc(uid);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (snap.exists) return;
+      tx.set(ref, {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        'addresses': <Map<String, dynamic>>[],
+        'wishlist': <String>[],
+        'pushEnabled': true,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+    });
   }
 
   Future<void> _mutate(

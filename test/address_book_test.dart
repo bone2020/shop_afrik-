@@ -6,6 +6,8 @@ import 'package:shop_afrik/core/theme/app_theme.dart';
 import 'package:shop_afrik/features/buyer/data/buyer_repository.dart';
 import 'package:shop_afrik/features/buyer/presentation/address_book_screen.dart';
 
+import 'support/session.dart';
+
 void main() {
   testWidgets('lists saved addresses with a default badge', (tester) async {
     const buyer = Buyer(
@@ -28,6 +30,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          stubSession(),
           currentBuyerProvider.overrideWith((ref) => Stream.value(buyer)),
         ],
         child: const MaterialApp(home: AddressBookScreen()),
@@ -43,6 +46,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          stubSession(),
           currentBuyerProvider.overrideWith((ref) => Stream.value(null)),
         ],
         child: MaterialApp(theme: AppTheme.dark, home: const AddressBookScreen()),

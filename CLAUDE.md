@@ -87,6 +87,16 @@ npm run lint
 firebase emulators:start
 ```
 
+## Authentication
+
+- Real Firebase Auth (email/password + phone/OTP); one sign-in front door for
+  every role (`lib/features/auth`). `SessionController` hydrates `Session` from
+  `idTokenChanges()` + ID-token claims via the pure `sessionFromClaims` mapping
+  (no `role` claim → buyer). The `Session` shape is unchanged, so screens are
+  untouched. The app force-refreshes the token on resume so a newly granted role
+  (e.g. seller approval) propagates. First admin is crowned once with
+  `functions/scripts/grant-admin.js`.
+
 ## Backend conventions
 
 - **Roles are custom auth claims** (`role`, `adminTier`). They are granted only
