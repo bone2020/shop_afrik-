@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shop_afrik/core/models/enums.dart';
 import 'package:shop_afrik/core/models/money.dart';
+import 'package:shop_afrik/core/models/order.dart';
 import 'package:shop_afrik/core/models/refund_request.dart';
 import 'package:shop_afrik/core/models/seller.dart';
 import 'package:shop_afrik/core/theme/app_theme.dart';
@@ -20,6 +21,8 @@ class _FakeAdmin implements AdminRepository {
   @override
   Stream<List<RefundRequest>> watchOpenRefunds() => Stream.value(refunds);
   @override
+  Stream<List<ShopOrder>> watchOrdersAwaitingQuote() => const Stream.empty();
+  @override
   Future<void> approveSeller({required String sellerId, required bool approve}) async {}
   @override
   Future<void> decideRefund({
@@ -27,6 +30,14 @@ class _FakeAdmin implements AdminRepository {
     required bool approve,
     String? note,
   }) async {}
+  @override
+  Future<void> quoteDelivery({
+    required String orderId,
+    required int deliveryFeeMinor,
+    String? note,
+  }) async {}
+  @override
+  Future<void> markDelivered(String orderId) async {}
 }
 
 Widget _wrap(Widget child, AdminRepository repo) => ProviderScope(

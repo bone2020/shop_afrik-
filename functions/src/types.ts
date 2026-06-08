@@ -22,22 +22,42 @@ export const Collections = {
 
 export const PLATFORM_SETTINGS_DOC = 'platform';
 
+// Integration Spec v2 §5 / §8 B1 lifecycle.
 export type OrderStatus =
-  | 'pendingPayment'
-  | 'paid'
-  | 'processing'
+  | 'awaitingDeliveryQuote'
+  | 'awaitingPayment'
+  | 'confirmed'
   | 'shipped'
   | 'delivered'
   | 'completed'
   | 'cancelled'
   | 'refunded';
 
+export type PaymentMethod = 'payNow' | 'payOnDelivery';
+
 export type PaymentStatus =
   | 'pending'
-  | 'paid'
-  | 'failed'
+  | 'held'
+  | 'captured'
+  | 'released'
   | 'partiallyRefunded'
   | 'refunded';
+
+/** Allowed forward transitions of the order lifecycle (§8 B1). */
+export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  awaitingDeliveryQuote: ['awaitingPayment', 'cancelled'],
+  awaitingPayment: ['confirmed', 'cancelled'],
+  confirmed: ['shipped', 'cancelled'],
+  shipped: ['delivered'],
+  delivered: ['completed', 'refunded'],
+  completed: [],
+  cancelled: [],
+  refunded: [],
+};
+
+export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
+  return ORDER_TRANSITIONS[from]?.includes(to) ?? false;
+}
 
 export type DeliveryStatus =
   | 'notDispatched'

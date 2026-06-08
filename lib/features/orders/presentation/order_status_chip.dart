@@ -12,9 +12,10 @@ class OrderStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      OrderStatus.pendingPayment => ('Pending payment', AppColors.mutedText),
-      OrderStatus.paid => ('Paid', AppColors.brightAqua),
-      OrderStatus.processing => ('Processing', AppColors.brightAqua),
+      OrderStatus.awaitingDeliveryQuote =>
+        ('Awaiting delivery quote', AppColors.mutedText),
+      OrderStatus.awaitingPayment => ('Awaiting payment', AppColors.brightAqua),
+      OrderStatus.confirmed => ('Confirmed', AppColors.brightAqua),
       OrderStatus.shipped => ('Shipped', AppColors.primaryTeal),
       OrderStatus.delivered => ('Delivered', AppColors.primaryTeal),
       OrderStatus.completed => ('Completed', AppColors.primaryTeal),

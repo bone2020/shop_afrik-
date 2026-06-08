@@ -50,6 +50,54 @@ class OrderItem {
       );
 }
 
+/// Snapshot of where an order is delivered, captured at placement so the admin
+/// can quote delivery against a concrete location.
+@immutable
+class DeliveryLocation {
+  const DeliveryLocation({
+    required this.recipientName,
+    required this.phone,
+    required this.addressLine,
+    required this.city,
+    required this.market,
+    this.region,
+  });
+
+  final String recipientName;
+  final String phone;
+  final String addressLine;
+  final String city;
+  final String? region;
+
+  /// ISO country code of the delivery market.
+  final String market;
+
+  String get summary => [
+        addressLine,
+        city,
+        if (region != null && region!.isNotEmpty) region,
+        market,
+      ].join(', ');
+
+  Map<String, dynamic> toMap() => {
+        'recipientName': recipientName,
+        'phone': phone,
+        'addressLine': addressLine,
+        'city': city,
+        'region': region,
+        'market': market,
+      };
+
+  factory DeliveryLocation.fromMap(Map<String, dynamic> map) => DeliveryLocation(
+        recipientName: map['recipientName'] as String? ?? '',
+        phone: map['phone'] as String? ?? '',
+        addressLine: map['addressLine'] as String? ?? '',
+        city: map['city'] as String? ?? '',
+        region: map['region'] as String?,
+        market: map['market'] as String? ?? '',
+      );
+}
+
 /// A buyer order (plan §7 `orders`). Tracks payment, delivery, and settlement
 /// legs independently (plan §5 flow, §6 settlement).
 @immutable
@@ -62,7 +110,10 @@ class ShopOrder {
     required this.paymentFee,
     required this.total,
     this.deliveryFee,
-    this.status = OrderStatus.pendingPayment,
+    this.deliveryLocation,
+    this.deliveryQuoteNote,
+    this.paymentMethod,
+    this.status = OrderStatus.awaitingDeliveryQuote,
     this.paymentStatus = PaymentStatus.pending,
     this.deliveryStatus = DeliveryStatus.notDispatched,
     this.settlementStatus = SettlementStatus.notDue,
@@ -78,17 +129,27 @@ class ShopOrder {
   final List<OrderItem> items;
 
   // Totals. The buyer pays the payment processing fee as a separate line item
-  // (plan §6). [total] is the up-front amount and intentionally EXCLUDES
-  // delivery: delivery is admin-set per order (not auto-calculated), and the
-  // product-vs-quote checkout flow that decides when/how it is charged is not
-  // yet finalized.
+  // (plan §6). [total] starts as items only (subtotal + payment fee); once the
+  // admin quotes delivery it is recomputed to items + delivery (Integration
+  // Spec v2 §5).
   final Money subtotal;
   final Money paymentFee;
   final Money total;
 
-  /// Admin-set delivery amount, populated once a delivery quote is agreed.
-  /// Null until then; never auto-derived from a flat market fee.
+  /// Admin-quoted delivery amount, populated when the order moves to
+  /// [OrderStatus.awaitingPayment]. Null until then; never auto-derived from a
+  /// flat market fee.
   final Money? deliveryFee;
+
+  /// Where the order is delivered (captured at placement so the admin can
+  /// quote against a concrete location).
+  final DeliveryLocation? deliveryLocation;
+
+  /// Optional human-readable breakdown the admin attaches to the quote.
+  final String? deliveryQuoteNote;
+
+  /// How the buyer chose to pay once the total was known (null until paid).
+  final PaymentMethod? paymentMethod;
 
   final OrderStatus status;
   final PaymentStatus paymentStatus;
@@ -118,6 +179,9 @@ class ShopOrder {
         'subtotal': subtotal.toMap(),
         'paymentFee': paymentFee.toMap(),
         'deliveryFee': deliveryFee?.toMap(),
+        'deliveryLocation': deliveryLocation?.toMap(),
+        'deliveryQuoteNote': deliveryQuoteNote,
+        'paymentMethod': paymentMethod?.name,
         'total': total.toMap(),
         'status': status.name,
         'paymentStatus': paymentStatus.name,
@@ -142,6 +206,12 @@ class ShopOrder {
         deliveryFee: map['deliveryFee'] == null
             ? null
             : Money.fromMap(map['deliveryFee'] as Map<String, dynamic>?),
+        deliveryLocation: map['deliveryLocation'] == null
+            ? null
+            : DeliveryLocation.fromMap(
+                (map['deliveryLocation'] as Map).cast<String, dynamic>()),
+        deliveryQuoteNote: map['deliveryQuoteNote'] as String?,
+        paymentMethod: PaymentMethod.fromName(map['paymentMethod'] as String?),
         total: Money.fromMap(map['total'] as Map<String, dynamic>?),
         status: OrderStatus.fromName(map['status'] as String?),
         paymentStatus: PaymentStatus.fromName(map['paymentStatus'] as String?),

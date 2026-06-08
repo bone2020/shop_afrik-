@@ -2,8 +2,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../lib/admin';
 import { requireAuth } from '../lib/guards';
+import { notify } from '../lib/notify';
 import { loadSettings, marketFor, paymentFeeRateFor } from '../config';
-import * as qrWallet from '../lib/qrWallet';
 import {
   Collections,
   Money,
@@ -18,24 +18,35 @@ interface CartLine {
   quantity: number;
 }
 
+interface DeliveryLocationInput {
+  recipientName: string;
+  phone: string;
+  addressLine: string;
+  city: string;
+  region?: string;
+  market: string;
+}
+
 /**
- * Creates a pending-payment order from a cart and returns a QR Wallet payload
- * for the buyer to pay (plan §5 steps 1–3).
+ * Places an order from a cart (Integration Spec v2 §5 step 1). No money is held
+ * yet: the order starts in `awaitingDeliveryQuote` so an admin can quote
+ * delivery before the buyer pays. The total at this point is items only
+ * (subtotal + payment fee); delivery is added by `quoteDelivery`.
  *
- * Stock is validated here but only decremented once payment is confirmed, so
- * unpaid carts never hold inventory. Totals follow plan §5 step 2:
- * subtotal + payment fee + delivery fee.
+ * Stock is validated here but only decremented once the buyer pays
+ * (`payOrder`), so unplaced/unpaid carts never hold inventory.
  */
 export const createOrder = onCall(async (req) => {
   const buyerId = requireAuth(req);
 
   const lines = (req.data?.items ?? []) as CartLine[];
-  const market = req.data?.market as string | undefined;
+  const location = req.data?.deliveryLocation as DeliveryLocationInput | undefined;
+  const market = location?.market;
   if (!Array.isArray(lines) || lines.length === 0) {
     throw new HttpsError('invalid-argument', 'Cart is empty.');
   }
-  if (!market) {
-    throw new HttpsError('invalid-argument', 'Delivery market is required.');
+  if (!location || !market) {
+    throw new HttpsError('invalid-argument', 'A delivery location is required.');
   }
 
   const settings = await loadSettings();
@@ -115,9 +126,8 @@ export const createOrder = onCall(async (req) => {
     }
 
     const paymentFee = applyRate(sub, paymentFeeRateFor(settings, market));
-    // Delivery is admin-set per order (not a flat market fee) and is NOT baked
-    // into the up-front total: the product-vs-quote checkout flow that decides
-    // how delivery is charged is not yet finalized.
+    // Items-only total for now. Delivery is quoted by an admin next and added
+    // to the total when the order moves to awaitingPayment (v2 §5).
     const total = addMoney(sub, paymentFee);
 
     const orderRef = db.collection(Collections.orders).doc();
@@ -130,34 +140,37 @@ export const createOrder = onCall(async (req) => {
       subtotal: sub,
       paymentFee,
       deliveryFee: null,
+      deliveryLocation: {
+        recipientName: location.recipientName,
+        phone: location.phone,
+        addressLine: location.addressLine,
+        city: location.city,
+        region: location.region ?? null,
+        market,
+      },
+      deliveryQuoteNote: null,
+      paymentMethod: null,
       total,
-      status: 'pendingPayment',
+      status: 'awaitingDeliveryQuote',
       paymentStatus: 'pending',
       deliveryStatus: 'notDispatched',
       settlementStatus: 'notDue',
-      qrWalletTxnId: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     };
     tx.set(orderRef, data);
-    return { id: orderRef.id, total };
+    return { id: orderRef.id };
   });
 
-  // Request a QR payload for the buyer to pay (plan §5 step 3). Until the QR
-  // Wallet endpoints are wired, this is reported as unconfigured rather than
-  // failing order creation.
-  try {
-    const qr = await qrWallet.generateBusinessQrPayload({
-      reference: order.id,
-      amount: order.total,
-    });
-    return { orderId: order.id, qr, paymentConfigured: true };
-  } catch (e) {
-    return {
-      orderId: order.id,
-      qr: null,
-      paymentConfigured: false,
-      message: (e as Error).message,
-    };
-  }
+  // The order is placed and awaiting a delivery quote — no money has moved.
+  await notify({
+    recipientId: buyerId,
+    audience: 'buyer',
+    title: 'Order placed',
+    body: 'We are preparing your delivery quote. Delivery is not included yet.',
+    type: 'order_placed',
+    deepLink: `/buyer/orders/${order.id}`,
+  });
+
+  return { orderId: order.id, status: 'awaitingDeliveryQuote' };
 });

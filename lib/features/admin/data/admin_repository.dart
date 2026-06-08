@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
+import '../../../core/models/order.dart';
 import '../../../core/models/refund_request.dart';
 import '../../../core/models/seller.dart';
 
@@ -12,12 +13,19 @@ import '../../../core/models/seller.dart';
 abstract interface class AdminRepository {
   Stream<List<Seller>> watchPendingSellers();
   Stream<List<RefundRequest>> watchOpenRefunds();
+  Stream<List<ShopOrder>> watchOrdersAwaitingQuote();
   Future<void> approveSeller({required String sellerId, required bool approve});
   Future<void> decideRefund({
     required String refundId,
     required bool approve,
     String? note,
   });
+  Future<void> quoteDelivery({
+    required String orderId,
+    required int deliveryFeeMinor,
+    String? note,
+  });
+  Future<void> markDelivered(String orderId);
 }
 
 class FirebaseAdminRepository implements AdminRepository {
@@ -43,6 +51,33 @@ class FirebaseAdminRepository implements AdminRepository {
         .snapshots()
         .map((s) =>
             s.docs.map((d) => RefundRequest.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Stream<List<ShopOrder>> watchOrdersAwaitingQuote() {
+    return _db
+        .collection(Collections.orders)
+        .where('status', isEqualTo: 'awaitingDeliveryQuote')
+        .snapshots()
+        .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Future<void> quoteDelivery({
+    required String orderId,
+    required int deliveryFeeMinor,
+    String? note,
+  }) async {
+    await _functions.httpsCallable('quoteDelivery').call({
+      'orderId': orderId,
+      'deliveryFeeMinor': deliveryFeeMinor,
+      if (note != null) 'note': note,
+    });
+  }
+
+  @override
+  Future<void> markDelivered(String orderId) async {
+    await _functions.httpsCallable('markDelivered').call({'orderId': orderId});
   }
 
   @override
@@ -82,4 +117,9 @@ final pendingSellersProvider =
 final openRefundsProvider =
     StreamProvider.autoDispose<List<RefundRequest>>((ref) {
   return ref.watch(adminRepositoryProvider).watchOpenRefunds();
+});
+
+final ordersAwaitingQuoteProvider =
+    StreamProvider.autoDispose<List<ShopOrder>>((ref) {
+  return ref.watch(adminRepositoryProvider).watchOrdersAwaitingQuote();
 });

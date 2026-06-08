@@ -49,28 +49,110 @@ enum SellerApprovalStatus {
 
 // --- Orders ---
 
-/// High-level order state (the customer-facing status).
+/// The order lifecycle (Integration Spec v2 §5 / §8 B1).
+///
+/// Money is only involved from [confirmed] onward, and the cancellation cutoff
+/// is [shipped]: a buyer may cancel up to (but not including) shipping.
 enum OrderStatus {
-  pendingPayment,
-  paid,
-  processing,
+  /// Placed by the buyer; no money held. Awaiting an admin delivery quote.
+  awaitingDeliveryQuote,
+
+  /// Delivery quoted; the buyer must pay the full total (items + delivery).
+  awaitingPayment,
+
+  /// Buyer paid — captured (pay-now) or authorized as a hold (pay-on-delivery).
+  /// Awaiting seller fulfillment.
+  confirmed,
+
+  /// Seller shipped. This is the cancellation cutoff.
   shipped,
+
+  /// Delivery confirmed. For pay-on-delivery this is the capture trigger;
+  /// it also opens the refund window.
   delivered,
+
+  /// Refund window closed and seller settled.
   completed,
+
+  /// Cancelled by the buyer before shipping (escrow refunded / hold released).
   cancelled,
+
+  /// Refunded through the refund-request flow.
   refunded;
 
-  static OrderStatus fromName(String? n) => _byName(values, n, pendingPayment);
+  static OrderStatus fromName(String? n) =>
+      _byName(values, n, awaitingDeliveryQuote);
 
   bool get isTerminal =>
       this == completed || this == cancelled || this == refunded;
+
+  /// Allowed forward transitions of the lifecycle state machine (§8 B1).
+  static const Map<OrderStatus, Set<OrderStatus>> _transitions = {
+    OrderStatus.awaitingDeliveryQuote: {
+      OrderStatus.awaitingPayment,
+      OrderStatus.cancelled,
+    },
+    OrderStatus.awaitingPayment: {
+      OrderStatus.confirmed,
+      OrderStatus.cancelled,
+    },
+    OrderStatus.confirmed: {
+      OrderStatus.shipped,
+      OrderStatus.cancelled,
+    },
+    OrderStatus.shipped: {
+      OrderStatus.delivered,
+    },
+    OrderStatus.delivered: {
+      OrderStatus.completed,
+      OrderStatus.refunded,
+    },
+    OrderStatus.completed: {},
+    OrderStatus.cancelled: {},
+    OrderStatus.refunded: {},
+  };
+
+  bool canTransitionTo(OrderStatus next) =>
+      _transitions[this]?.contains(next) ?? false;
+
+  /// The buyer may cancel only before shipment (cutoff at [shipped]).
+  bool get buyerCanCancel =>
+      this == awaitingDeliveryQuote ||
+      this == awaitingPayment ||
+      this == confirmed;
 }
 
-/// Payment leg, driven by QR Wallet confirmation (plan §5).
+/// How the buyer chose to pay once the order total is known (§5).
+enum PaymentMethod {
+  /// Money-in at checkout via the capture seam.
+  payNow,
+
+  /// Authorization hold at checkout via the hold seam; captured on delivery.
+  payOnDelivery;
+
+  static PaymentMethod? fromName(String? n) {
+    for (final v in values) {
+      if (v.name == n) return v;
+    }
+    return null;
+  }
+}
+
+/// Payment money state (the seam calls that move it stay inert for now).
 enum PaymentStatus {
+  /// No money moved yet.
   pending,
-  paid,
-  failed,
+
+  /// Pay-on-delivery authorization hold placed.
+  held,
+
+  /// Funds captured into escrow (pay-now at checkout, or pay-on-delivery on
+  /// delivery).
+  captured,
+
+  /// Pay-on-delivery hold released (buyer cancelled before shipping).
+  released,
+
   partiallyRefunded,
   refunded;
 

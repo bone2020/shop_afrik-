@@ -1,20 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Result of creating an order. [paymentConfigured] is false while the QR
-/// Wallet seam is inert — the order is recorded as pending payment, but no
-/// payment can be collected yet. We never fabricate a successful payment.
-class CreateOrderResult {
-  const CreateOrderResult({
-    required this.orderId,
-    required this.paymentConfigured,
-    this.message,
-  });
-
-  final String orderId;
-  final bool paymentConfigured;
-  final String? message;
-}
+import '../../../core/models/enums.dart';
+import '../../../core/models/order.dart';
 
 class CartItemRef {
   const CartItemRef({required this.productId, required this.quantity});
@@ -22,13 +10,25 @@ class CartItemRef {
   final int quantity;
 }
 
-/// Creates orders via the `createOrder` Cloud Function (which computes the
-/// authoritative totals and talks to the QR Wallet seam).
+/// Buyer-facing order actions, all via Cloud Functions (orders are
+/// server-write-only). Money moves go through the inert QR Wallet seam — these
+/// surface the real outcome and never fake success.
 abstract interface class OrderService {
-  Future<CreateOrderResult> createOrder({
+  /// Places an order (no money held); returns the new order id. The order
+  /// starts in `awaitingDeliveryQuote`.
+  Future<String> placeOrder({
     required List<CartItemRef> items,
-    required String market,
+    required DeliveryLocation deliveryLocation,
   });
+
+  /// Pays a quoted order with the chosen method (money-in via the seam).
+  Future<void> payOrder({
+    required String orderId,
+    required PaymentMethod method,
+  });
+
+  /// Cancels an order (allowed only before it ships).
+  Future<void> cancelOrder(String orderId);
 }
 
 class FunctionsOrderService implements OrderService {
@@ -37,24 +37,34 @@ class FunctionsOrderService implements OrderService {
   final FirebaseFunctions _functions;
 
   @override
-  Future<CreateOrderResult> createOrder({
+  Future<String> placeOrder({
     required List<CartItemRef> items,
-    required String market,
+    required DeliveryLocation deliveryLocation,
   }) async {
-    final callable = _functions.httpsCallable('createOrder');
-    final res = await callable.call<Map<String, dynamic>>({
+    final res = await _functions.httpsCallable('createOrder').call<Map<String, dynamic>>({
       'items': [
         for (final i in items)
           {'productId': i.productId, 'quantity': i.quantity},
       ],
-      'market': market,
+      'deliveryLocation': deliveryLocation.toMap(),
     });
-    final data = res.data;
-    return CreateOrderResult(
-      orderId: data['orderId'] as String? ?? '',
-      paymentConfigured: data['paymentConfigured'] as bool? ?? false,
-      message: data['message'] as String?,
-    );
+    return res.data['orderId'] as String? ?? '';
+  }
+
+  @override
+  Future<void> payOrder({
+    required String orderId,
+    required PaymentMethod method,
+  }) async {
+    await _functions.httpsCallable('payOrder').call({
+      'orderId': orderId,
+      'method': method.name,
+    });
+  }
+
+  @override
+  Future<void> cancelOrder(String orderId) async {
+    await _functions.httpsCallable('cancelOrder').call({'orderId': orderId});
   }
 }
 

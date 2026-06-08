@@ -8,8 +8,9 @@ export { setUserRole } from './auth/setUserRole';
 export { approveSeller } from './sellers/approveSeller';
 
 export { createOrder } from './orders/createOrder';
-export { confirmPayment } from './orders/confirmPayment';
-export { confirmDelivery } from './orders/confirmDelivery';
+export { quoteDelivery } from './orders/quoteDelivery';
+export { payOrder } from './orders/payOrder';
+export { markShipped, markDelivered, cancelOrder } from './orders/transitions';
 
 export { decideRefund } from './refunds/decideRefund';
 

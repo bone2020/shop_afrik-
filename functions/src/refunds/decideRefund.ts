@@ -143,8 +143,8 @@ export const decideRefund = onCall(async (req) => {
   // Step 2: required approvals met — release the escrowed funds back to the
   // buyer and adjust the order. escrow -amount -> buyer wallet.
   const moveId = `refund_release_${refundId}`;
-  const payoutId = await qrWallet.releaseToBuyer({
-    refundId,
+  const payoutId = await qrWallet.refundFromEscrow({
+    orderId: outcome.orderId,
     buyerWalletId: outcome.buyerId,
     amount: outcome.amount,
     idempotencyKey: moveId,
