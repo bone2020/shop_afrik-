@@ -9,6 +9,7 @@ import '../../../core/models/product.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/session_controller.dart';
 import '../../buyer/data/catalog_repository.dart';
+import '../data/image_upload_service.dart';
 import '../data/seller_products_repository.dart';
 import '../data/seller_repository.dart';
 
@@ -35,6 +36,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
   String? _categoryId;
   bool _initialized = false;
   bool _saving = false;
+  bool _uploadingImage = false;
   Product? _existing;
 
   @override
@@ -175,6 +177,20 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
               decoration:
                   const InputDecoration(labelText: 'Image URL (optional)'),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _uploadingImage ? null : _uploadImage,
+                icon: _uploadingImage
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.upload_outlined),
+                label: const Text('Upload image'),
+              ),
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: (currency == null || _saving)
@@ -191,6 +207,27 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _uploadImage() async {
+    final uid = ref.read(sessionControllerProvider).uid;
+    if (uid == null) return;
+    setState(() => _uploadingImage = true);
+    try {
+      final url = await ref
+          .read(imageUploadServiceProvider)
+          .pickAndUploadProductImage(uid);
+      if (url != null && mounted) {
+        setState(() => _imageUrl.text = url);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
   }
 
   Future<void> _save(String currency) async {
