@@ -65,3 +65,6 @@ lib/firebase_options.dart
 
 # Coverage
 coverage/
+
+# macOS AppleDouble sidecar files
+**/._*

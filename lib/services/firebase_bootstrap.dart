@@ -1,23 +1,20 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-/// Initializes the Shop Afrik Firebase project.
-///
-/// The generated `lib/firebase_options.dart` is intentionally NOT committed
-/// (it is environment-specific and listed in `.gitignore`). Run
-/// `flutterfire configure` against the dedicated Shop Afrik Firebase project
-/// (plan §10) to generate it, then this bootstrap will pick it up.
-///
-/// Until the file exists, [ensureFirebaseInitialized] falls back to the
-/// default `Firebase.initializeApp()` so the app can still boot during early
-/// scaffolding without crashing.
+import '../firebase_options.dart';
+
+/// Initializes the Shop Afrik Firebase project using the generated
+/// `lib/firebase_options.dart`. Explicit options work uniformly across
+/// Android, iOS, and web, with no per-platform native config required.
 Future<void> ensureFirebaseInitialized() async {
+  if (Firebase.apps.isNotEmpty) return;
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } on FirebaseException catch (e) {
     if (kDebugMode) {
-      // No options configured yet — expected before `flutterfire configure`.
-      debugPrint('Firebase not yet configured: ${e.message}');
+      debugPrint('Firebase initialization failed: ${e.message}');
     }
     rethrow;
   }
