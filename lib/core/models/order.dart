@@ -1,0 +1,281 @@
+import 'package:flutter/foundation.dart';
+
+import 'enums.dart';
+import 'money.dart';
+
+/// A single line in an order. Product details are denormalized so the order is
+/// a stable historical record even if the product later changes.
+@immutable
+class OrderItem {
+  const OrderItem({
+    required this.productId,
+    required this.sellerId,
+    required this.title,
+    required this.unitPrice,
+    required this.quantity,
+    this.imageUrl,
+    this.refundedQuantity = 0,
+  });
+
+  final String productId;
+  final String sellerId;
+  final String title;
+  final Money unitPrice;
+  final int quantity;
+  final String? imageUrl;
+
+  /// How many units of this line have been refunded (partial refunds, §6).
+  final int refundedQuantity;
+
+  Money get lineTotal => unitPrice * quantity;
+
+  Map<String, dynamic> toMap() => {
+        'productId': productId,
+        'sellerId': sellerId,
+        'title': title,
+        'unitPrice': unitPrice.toMap(),
+        'quantity': quantity,
+        'imageUrl': imageUrl,
+        'refundedQuantity': refundedQuantity,
+      };
+
+  factory OrderItem.fromMap(Map<String, dynamic> map) => OrderItem(
+        productId: map['productId'] as String? ?? '',
+        sellerId: map['sellerId'] as String? ?? '',
+        title: map['title'] as String? ?? '',
+        unitPrice: Money.fromMap(map['unitPrice'] as Map<String, dynamic>?),
+        quantity: (map['quantity'] as num?)?.toInt() ?? 0,
+        imageUrl: map['imageUrl'] as String?,
+        refundedQuantity: (map['refundedQuantity'] as num?)?.toInt() ?? 0,
+      );
+}
+
+/// Snapshot of where an order is delivered, captured at placement so the admin
+/// can quote delivery against a concrete location.
+@immutable
+class DeliveryLocation {
+  const DeliveryLocation({
+    required this.recipientName,
+    required this.phone,
+    required this.addressLine,
+    required this.city,
+    required this.market,
+    this.region,
+  });
+
+  final String recipientName;
+  final String phone;
+  final String addressLine;
+  final String city;
+  final String? region;
+
+  /// ISO country code of the delivery market.
+  final String market;
+
+  String get summary => [
+        addressLine,
+        city,
+        if (region != null && region!.isNotEmpty) region,
+        market,
+      ].join(', ');
+
+  Map<String, dynamic> toMap() => {
+        'recipientName': recipientName,
+        'phone': phone,
+        'addressLine': addressLine,
+        'city': city,
+        'region': region,
+        'market': market,
+      };
+
+  factory DeliveryLocation.fromMap(Map<String, dynamic> map) => DeliveryLocation(
+        recipientName: map['recipientName'] as String? ?? '',
+        phone: map['phone'] as String? ?? '',
+        addressLine: map['addressLine'] as String? ?? '',
+        city: map['city'] as String? ?? '',
+        region: map['region'] as String?,
+        market: map['market'] as String? ?? '',
+      );
+}
+
+/// Proof of delivery captured by the delivery person at drop-off: a photo, GPS
+/// coordinates, and a timestamp, plus the scanned package barcode and who
+/// submitted it. Submitting this is what marks the order delivered.
+@immutable
+class DeliveryProof {
+  const DeliveryProof({
+    required this.deliveryPersonId,
+    required this.barcode,
+    this.photoUrl,
+    this.latitude,
+    this.longitude,
+    this.capturedAt,
+  });
+
+  final String deliveryPersonId;
+  final String barcode;
+  final String? photoUrl;
+  final double? latitude;
+  final double? longitude;
+  final DateTime? capturedAt;
+
+  bool get hasLocation => latitude != null && longitude != null;
+
+  Map<String, dynamic> toMap() => {
+        'deliveryPersonId': deliveryPersonId,
+        'barcode': barcode,
+        'photoUrl': photoUrl,
+        'latitude': latitude,
+        'longitude': longitude,
+        'capturedAt': capturedAt?.toIso8601String(),
+      };
+
+  factory DeliveryProof.fromMap(Map<String, dynamic> map) => DeliveryProof(
+        deliveryPersonId: map['deliveryPersonId'] as String? ?? '',
+        barcode: map['barcode'] as String? ?? '',
+        photoUrl: map['photoUrl'] as String?,
+        latitude: (map['latitude'] as num?)?.toDouble(),
+        longitude: (map['longitude'] as num?)?.toDouble(),
+        capturedAt: DateTime.tryParse(map['capturedAt'] as String? ?? ''),
+      );
+}
+
+/// A buyer order (plan §7 `orders`). Tracks payment, delivery, and settlement
+/// legs independently (plan §5 flow, §6 settlement).
+@immutable
+class ShopOrder {
+  const ShopOrder({
+    required this.id,
+    required this.buyerId,
+    required this.items,
+    required this.subtotal,
+    required this.paymentFee,
+    required this.total,
+    this.deliveryFee,
+    this.deliveryLocation,
+    this.deliveryProof,
+    this.deliveryQuoteNote,
+    this.paymentMethod,
+    this.status = OrderStatus.awaitingDeliveryQuote,
+    this.paymentStatus = PaymentStatus.pending,
+    this.deliveryStatus = DeliveryStatus.notDispatched,
+    this.settlementStatus = SettlementStatus.notDue,
+    this.qrWalletTxnId,
+    this.deliveryConfirmedAt,
+    this.settlementDueAt,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  final String id;
+  final String buyerId;
+  final List<OrderItem> items;
+
+  // Totals. The buyer pays the payment processing fee as a separate line item
+  // (plan §6). [total] starts as items only (subtotal + payment fee); once the
+  // admin quotes delivery it is recomputed to items + delivery (Integration
+  // Spec v2 §5).
+  final Money subtotal;
+  final Money paymentFee;
+  final Money total;
+
+  /// Admin-quoted delivery amount, populated when the order moves to
+  /// [OrderStatus.awaitingPayment]. Null until then; never auto-derived from a
+  /// flat market fee.
+  final Money? deliveryFee;
+
+  /// Where the order is delivered (captured at placement so the admin can
+  /// quote against a concrete location).
+  final DeliveryLocation? deliveryLocation;
+
+  /// Proof of delivery captured at drop-off (null until delivered).
+  final DeliveryProof? deliveryProof;
+
+  /// Optional human-readable breakdown the admin attaches to the quote.
+  final String? deliveryQuoteNote;
+
+  /// How the buyer chose to pay once the total was known (null until paid).
+  final PaymentMethod? paymentMethod;
+
+  final OrderStatus status;
+  final PaymentStatus paymentStatus;
+  final DeliveryStatus deliveryStatus;
+  final SettlementStatus settlementStatus;
+
+  /// QR Wallet transaction that paid this order (plan §5 step 5).
+  final String? qrWalletTxnId;
+
+  /// When the courier confirmed delivery — starts the 7-day refund window.
+  final DateTime? deliveryConfirmedAt;
+
+  /// When auto-settlement is due (delivery + 8 days, plan §6).
+  final DateTime? settlementDueAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  /// Distinct sellers represented in this order (multi-seller carts).
+  Set<String> get sellerIds => {for (final i in items) i.sellerId};
+
+  bool get isMultiItem => items.length > 1;
+
+  Map<String, dynamic> toMap() => {
+        'buyerId': buyerId,
+        'items': items.map((i) => i.toMap()).toList(),
+        'sellerIds': sellerIds.toList(),
+        'subtotal': subtotal.toMap(),
+        'paymentFee': paymentFee.toMap(),
+        'deliveryFee': deliveryFee?.toMap(),
+        'deliveryLocation': deliveryLocation?.toMap(),
+        'deliveryProof': deliveryProof?.toMap(),
+        'deliveryQuoteNote': deliveryQuoteNote,
+        'paymentMethod': paymentMethod?.name,
+        'total': total.toMap(),
+        'status': status.name,
+        'paymentStatus': paymentStatus.name,
+        'deliveryStatus': deliveryStatus.name,
+        'settlementStatus': settlementStatus.name,
+        'qrWalletTxnId': qrWalletTxnId,
+        'deliveryConfirmedAt': deliveryConfirmedAt?.toIso8601String(),
+        'settlementDueAt': settlementDueAt?.toIso8601String(),
+        'createdAt': createdAt?.toIso8601String(),
+        'updatedAt': updatedAt?.toIso8601String(),
+      };
+
+  factory ShopOrder.fromMap(String id, Map<String, dynamic> map) => ShopOrder(
+        id: id,
+        buyerId: map['buyerId'] as String? ?? '',
+        items: (map['items'] as List?)
+                ?.map((i) => OrderItem.fromMap(i as Map<String, dynamic>))
+                .toList() ??
+            const [],
+        subtotal: Money.fromMap(map['subtotal'] as Map<String, dynamic>?),
+        paymentFee: Money.fromMap(map['paymentFee'] as Map<String, dynamic>?),
+        deliveryFee: map['deliveryFee'] == null
+            ? null
+            : Money.fromMap(map['deliveryFee'] as Map<String, dynamic>?),
+        deliveryLocation: map['deliveryLocation'] == null
+            ? null
+            : DeliveryLocation.fromMap(
+                (map['deliveryLocation'] as Map).cast<String, dynamic>()),
+        deliveryProof: map['deliveryProof'] == null
+            ? null
+            : DeliveryProof.fromMap(
+                (map['deliveryProof'] as Map).cast<String, dynamic>()),
+        deliveryQuoteNote: map['deliveryQuoteNote'] as String?,
+        paymentMethod: PaymentMethod.fromName(map['paymentMethod'] as String?),
+        total: Money.fromMap(map['total'] as Map<String, dynamic>?),
+        status: OrderStatus.fromName(map['status'] as String?),
+        paymentStatus: PaymentStatus.fromName(map['paymentStatus'] as String?),
+        deliveryStatus:
+            DeliveryStatus.fromName(map['deliveryStatus'] as String?),
+        settlementStatus:
+            SettlementStatus.fromName(map['settlementStatus'] as String?),
+        qrWalletTxnId: map['qrWalletTxnId'] as String?,
+        deliveryConfirmedAt:
+            DateTime.tryParse(map['deliveryConfirmedAt'] as String? ?? ''),
+        settlementDueAt:
+            DateTime.tryParse(map['settlementDueAt'] as String? ?? ''),
+        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? ''),
+      );
+}
