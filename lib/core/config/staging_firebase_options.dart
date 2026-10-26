@@ -5,23 +5,23 @@ import 'package:flutter/foundation.dart';
 ///
 /// These identify the project to Firebase; they are not secrets (access is
 /// enforced by the security rules), so unlike `lib/firebase_options.dart`
-/// they are committed. The app ids are filled in once the staging Android and
-/// iOS apps are registered (docs/STAGING.md).
+/// they are committed. The values come from the Staging workflow's
+/// "register apps" action (docs/STAGING.md).
 abstract final class StagingFirebaseOptions {
   static const String projectId = 'kartafrik-staging';
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: '',
-    appId: '',
-    messagingSenderId: '',
+    apiKey: 'AIzaSyB3ECnOxMg51WHJ6bL6IKatiLEp7eYpnBE',
+    appId: '1:788179421436:android:d28733e6a559b80cbb2f79',
+    messagingSenderId: '788179421436',
     projectId: projectId,
     storageBucket: 'kartafrik-staging.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: '',
-    appId: '',
-    messagingSenderId: '',
+    apiKey: 'AIzaSyAEIm3ODO7R8qlQU5VS59Rd2ogvPVEwwo4',
+    appId: '1:788179421436:ios:85829d9d779ced4dbb2f79',
+    messagingSenderId: '788179421436',
     projectId: projectId,
     storageBucket: 'kartafrik-staging.firebasestorage.app',
     iosBundleId: 'com.shopafrik.shopAfrik',

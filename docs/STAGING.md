@@ -16,11 +16,26 @@ instead of real money. Nothing done there reaches real customers or money.
 5. Deploy key:
    - Project settings → Service accounts → Generate new private key.
    - Google Cloud console → IAM: give the `firebase-adminsdk-…` account the
-     **Editor** and **Service Account User** roles.
-   - GitHub → Settings → Secrets and variables → Actions → New repository
-     secret `FIREBASE_SERVICE_ACCOUNT_STAGING`, paste the whole key file.
+     **Editor**, **Service Account User**, **Project IAM Admin**, **Cloud
+     Functions Admin** and **Cloud Run Admin** roles. The first functions
+     deploy needs all five: it grants Google's own services their roles and
+     lets the app call the functions. Once a deploy has passed, remove
+     **Project IAM Admin** again: later deploys only check those grants, and
+     the key stored in GitHub should not be able to change who has access.
+   - Google Cloud console → APIs: enable the **Cloud Billing API** (the deploy
+     checks the project is on Blaze).
+   - GitHub → Settings → Secrets and variables → **Actions** (not Codespaces
+     or Dependabot) → New repository secret
+     `FIREBASE_SERVICE_ACCOUNT_STAGING`, paste the whole key file.
    - Delete the downloaded key file.
-6. GitHub secret `STAGING_TEST_PASSWORD`: the password every test account uses.
+6. GitHub Actions secret `STAGING_TEST_PASSWORD`: the password every test
+   account uses.
+7. Run Staging → **deploy and load test data**, then → **register apps**, and
+   put the printed `apiKey`, `appId` and `messagingSenderId` values into
+   `lib/core/config/staging_firebase_options.dart`.
+
+If the very first deploy fails on an "Eventarc Service Agent" permission,
+wait a few minutes and run it again; Google is still setting the project up.
 
 ## The Staging button
 
