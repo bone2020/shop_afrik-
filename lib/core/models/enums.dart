@@ -212,6 +212,13 @@ enum RefundStatus {
   /// Money returned to the buyer via QR Wallet.
   refunded;
 
+  /// Still undecided or unpaid: blocks a second request on the same order.
+  bool get isOpen =>
+      this == requested ||
+      this == underReview ||
+      this == escalated ||
+      this == approved;
+
   static RefundStatus fromName(String? n) => _byName(values, n, requested);
 }
 

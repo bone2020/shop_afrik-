@@ -6,7 +6,10 @@ import '../../../core/models/buyer.dart';
 import '../../../core/models/order.dart';
 import '../../../core/models/platform_settings.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/callable_error.dart';
 import '../../../core/util/money_format.dart';
+import '../../auth/data/auth_service.dart';
+import '../../auth/presentation/email_verification_banner.dart';
 import '../application/cart_controller.dart';
 import '../data/buyer_repository.dart';
 import '../data/order_service.dart';
@@ -43,6 +46,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _region.dispose();
     super.dispose();
   }
+
+  late bool _needsEmailVerification =
+      ref.read(authServiceProvider).needsEmailVerification;
 
   @override
   Widget build(BuildContext context) {
@@ -147,8 +153,16 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             const SizedBox(height: 12),
             _field(_region, 'Region / state (optional)', required: false),
             const SizedBox(height: 24),
+            if (_needsEmailVerification) ...[
+              EmailVerificationBanner(
+                action: 'check out',
+                onVerified: () =>
+                    setState(() => _needsEmailVerification = false),
+              ),
+              const SizedBox(height: 12),
+            ],
             ElevatedButton(
-              onPressed: (selected == null || _placing)
+              onPressed: (selected == null || _placing || _needsEmailVerification)
                   ? null
                   : () => _placeOrder(selected),
               child: _placing
@@ -219,7 +233,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      _showDialog('Could not place order', '$e');
+      _showDialog('Could not place order', callableErrorMessage(e));
     } finally {
       if (mounted) setState(() => _placing = false);
     }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/data/platform_settings_repository.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/order.dart';
+import '../../../core/models/platform_settings.dart';
+import '../../../core/models/refund_request.dart';
 import '../../../core/models/review.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/util/money_format.dart';
@@ -11,9 +14,12 @@ import '../../orders/data/orders_repository.dart';
 import '../../orders/presentation/order_status_chip.dart';
 import '../../reviews/data/reviews_repository.dart';
 import '../data/order_service.dart';
+import '../data/refund_service.dart';
+import 'refund_request_screen.dart';
 
 /// Buyer order detail (v2 §5): totals, status, and the post-quote actions —
-/// pay (now / on delivery), cancel (before shipping), and rate after delivery.
+/// pay (now / on delivery), cancel (before shipping), rate after delivery, and
+/// request a refund within the refund window (SA-053).
 class BuyerOrderDetailScreen extends ConsumerWidget {
   const BuyerOrderDetailScreen({super.key, required this.orderId});
 
@@ -158,6 +164,8 @@ class _DetailState extends ConsumerState<_Detail> {
       ]);
     }
 
+    widgets.addAll(_refundSection(o));
+
     if (o.status == OrderStatus.delivered ||
         o.status == OrderStatus.completed) {
       widgets.add(const SizedBox(height: 8));
@@ -176,6 +184,40 @@ class _DetailState extends ConsumerState<_Detail> {
       }
     }
 
+    return widgets;
+  }
+
+  /// Refund status for this order, and the request button while the refund
+  /// window is open and nothing is already pending. The server re-checks all
+  /// of this; the button is only offered when it can succeed.
+  List<Widget> _refundSection(ShopOrder o) {
+    final refunds = ref.watch(orderRefundsProvider(o.id)).valueOrNull ??
+        const <RefundRequest>[];
+    final settings = ref.watch(platformSettingsProvider).valueOrNull ??
+        const PlatformSettings();
+    final widgets = <Widget>[
+      for (final r in refunds) _RefundStatusCard(refund: r),
+    ];
+
+    final delivered = o.deliveryConfirmedAt;
+    final windowOpen = o.status == OrderStatus.delivered &&
+        delivered != null &&
+        DateTime.now().isBefore(
+            delivered.add(Duration(days: settings.refundWindowDays)));
+    final pending = refunds.any((r) => r.status.isOpen);
+    final refundable =
+        o.items.any((i) => i.quantity - i.refundedQuantity > 0);
+    if (windowOpen && !pending && refundable) {
+      widgets.addAll([
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<bool>(
+              builder: (_) => RefundRequestScreen(order: o))),
+          icon: const Icon(Icons.assignment_return_outlined),
+          label: const Text('Request a refund'),
+        ),
+      ]);
+    }
     return widgets;
   }
 
@@ -431,6 +473,35 @@ class _Info extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(text, style: const TextStyle(fontSize: 13)),
+    );
+  }
+}
+
+class _RefundStatusCard extends StatelessWidget {
+  const _RefundStatusCard({required this.refund});
+  final RefundRequest refund;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (refund.status) {
+      RefundStatus.requested ||
+      RefundStatus.underReview ||
+      RefundStatus.escalated =>
+        ('Refund under review', AppColors.mutedText),
+      RefundStatus.approved => ('Refund approved, sending', AppColors.mutedText),
+      RefundStatus.refunded => ('Refunded to your wallet', AppColors.primaryTeal),
+      RefundStatus.rejected => ('Refund declined', AppColors.dangerCoral),
+    };
+    return Card(
+      child: ListTile(
+        leading: Icon(Icons.assignment_return_outlined, color: color),
+        title: Text(label, style: TextStyle(color: color)),
+        subtitle: Text(
+          refund.decisionNote?.isNotEmpty == true
+              ? '${formatMoney(refund.amount)} · ${refund.decisionNote}'
+              : formatMoney(refund.amount),
+        ),
+      ),
     );
   }
 }
