@@ -8,7 +8,8 @@ import { recordLedgerMove } from '../lib/ledger';
 import { loadSettings } from '../config';
 import * as qrWallet from '../lib/qrWallet';
 import { refundTierFor, requiresSecondApproval } from './tier';
-import { Collections, Money } from '../types';
+import { OPEN_REFUND_STATUSES } from './requestRefund';
+import { Collections, Money, OrderItem } from '../types';
 
 /**
  * Records an admin decision on a refund request, enforcing tiered approval
@@ -53,12 +54,31 @@ export const decideRefund = onCall(async (req) => {
     }
 
     if (decision === 'reject') {
+      // Resume the seller's settlement held by this request (SA-051), unless
+      // another refund on the order is still open.
+      const orderRef = db.collection(Collections.orders).doc(r.orderId);
+      const [orderSnap, open] = await Promise.all([
+        tx.get(orderRef),
+        tx.get(
+          db
+            .collection(Collections.refundRequests)
+            .where('orderId', '==', r.orderId)
+            .where('status', 'in', OPEN_REFUND_STATUSES),
+        ),
+      ]);
+      const othersOpen = open.docs.some((d) => d.id !== refundId);
+      if (orderSnap.data()?.settlementStatus === 'onHold' && !othersOpen) {
+        tx.update(orderRef, {
+          settlementStatus: 'scheduled',
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
       tx.update(refundRef, {
         status: 'rejected',
         firstApproverId: r.firstApproverId ?? adminId,
         decisionNote: note,
         tier,
-        resolvedAt: FieldValue.serverTimestamp(),
+        resolvedAt: new Date().toISOString(),
       });
       return { action: 'rejected' as const, buyerId: r.buyerId as string };
     }
@@ -158,7 +178,7 @@ export const decideRefund = onCall(async (req) => {
     externalTxnId: payoutId,
   });
 
-  await finalizeRefund(refundId, outcome.orderId, outcome.amount, payoutId);
+  await finalizeRefund(refundId, outcome.orderId, payoutId);
   await notify({
     recipientId: outcome.buyerId,
     audience: 'buyer',
@@ -171,36 +191,57 @@ export const decideRefund = onCall(async (req) => {
   return { ok: true, status: 'refunded' };
 });
 
-/** Marks the refund refunded and adjusts the order's payment/settlement legs. */
+/**
+ * Marks the refund refunded and adjusts the order: each refunded line's
+ * `refundedQuantity` grows, so settlement pays sellers only for what was kept.
+ * A full refund reverses settlement; a partial one resumes it for the
+ * remaining quantities (SA-052, stage 1 — fee allocation waits for D-02).
+ */
 async function finalizeRefund(
   refundId: string,
   orderId: string,
-  amount: Money,
   payoutId: string,
 ): Promise<void> {
   await db.runTransaction(async (tx) => {
     const refundRef = db.collection(Collections.refundRequests).doc(refundId);
     const orderRef = db.collection(Collections.orders).doc(orderId);
-    const orderSnap = await tx.get(orderRef);
+    const [refundSnap, orderSnap] = await Promise.all([
+      tx.get(refundRef),
+      tx.get(orderRef),
+    ]);
     if (!orderSnap.exists) throw new HttpsError('not-found', 'Order missing.');
     const order = orderSnap.data()!;
+    const lines = (refundSnap.data()?.lines ?? []) as Array<{
+      productId: string;
+      quantity: number;
+    }>;
 
-    // Compare against the escrowed amount (subtotal), since that is what can be
-    // refunded — the up-front total also includes the payment fee.
-    const subtotal = order.subtotal as Money;
-    const fullyRefunded = amount.minorUnits >= subtotal.minorUnits;
+    const items = ((order.items ?? []) as OrderItem[]).map((item) => {
+      const line = lines.find((l) => l.productId === item.productId);
+      if (!line) return item;
+      return {
+        ...item,
+        refundedQuantity: Math.min(
+          item.quantity,
+          (item.refundedQuantity ?? 0) + line.quantity,
+        ),
+      };
+    });
+    const fullyRefunded = items.every((i) => i.refundedQuantity >= i.quantity);
 
     tx.update(refundRef, {
       status: 'refunded',
       qrWalletRefundId: payoutId,
-      resolvedAt: FieldValue.serverTimestamp(),
+      resolvedAt: new Date().toISOString(),
     });
 
     tx.update(orderRef, {
+      items,
       paymentStatus: fullyRefunded ? 'refunded' : 'partiallyRefunded',
       status: fullyRefunded ? 'refunded' : order.status,
-      // Hold or reverse settlement so we never pay a seller for refunded goods.
-      settlementStatus: fullyRefunded ? 'reversed' : 'onHold',
+      // Never pay a seller for refunded goods: reverse a full refund; settle
+      // the kept quantities of a partial one.
+      settlementStatus: fullyRefunded ? 'reversed' : 'scheduled',
       updatedAt: FieldValue.serverTimestamp(),
     });
   });

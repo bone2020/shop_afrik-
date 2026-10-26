@@ -124,11 +124,9 @@ service cloud.firestore {
                   || isOwner(resource.data.buyerId)
                   || (isSeller()
                       && request.auth.uid in resource.data.get('sellerIds', []));
-      // Buyers open requests; the request must start in `requested`.
-      allow create: if isOwner(request.resource.data.buyerId)
-                    && request.resource.data.status == 'requested';
-      // Decisions/escalation go through Cloud Functions.
-      allow update, delete: if false;
+      // Created by the requestRefund function (which computes the amount and
+      // checks the window); decisions go through decideRefund.
+      allow write: if false;
     }
 
     // ---- settlements ----

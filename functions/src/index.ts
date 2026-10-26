@@ -19,6 +19,7 @@ export {
   submitProofOfDelivery,
 } from './orders/transitions';
 
+export { requestRefund } from './refunds/requestRefund';
 export { decideRefund } from './refunds/decideRefund';
 
 export { settleDueOrders } from './settlement/settleDueOrders';
