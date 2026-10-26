@@ -4,7 +4,7 @@
  */
 function stagingProjectId() {
   const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
-  const ok = !!project && (project.includes('staging') || project.startsWith('demo-'));
+  const ok = !!project && (project === 'kartafrik-staging' || project.startsWith('demo-'));
   if (!ok) {
     console.error(
       `Refusing to run against project "${project ?? '(not set)'}". ` +

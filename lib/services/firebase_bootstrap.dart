@@ -10,9 +10,12 @@ import '../firebase_options.dart';
 /// Android, iOS, and web, with no per-platform native config required.
 Future<void> ensureFirebaseInitialized() async {
   if (Firebase.apps.isNotEmpty) return;
+  // Checked first so a misspelt KARTAFRIK_ENV stops the app before it can
+  // connect anywhere.
+  final env = AppEnvironment.current;
   try {
     await Firebase.initializeApp(
-      options: AppEnvironment.isStaging
+      options: env == AppEnv.staging
           ? StagingFirebaseOptions.currentPlatform
           : DefaultFirebaseOptions.currentPlatform,
     );
