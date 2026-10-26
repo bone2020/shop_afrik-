@@ -37,6 +37,10 @@ instead of real money. Nothing done there reaches real customers or money.
 If the very first deploy fails on an "Eventarc Service Agent" permission,
 wait a few minutes and run it again; Google is still setting the project up.
 
+If the app says **UNAUTHENTICATED** on an action such as placing an order,
+run **deploy** again. Each deploy re-opens the app's server functions to the
+app; the functions still check who is signed in.
+
 ## The Staging button
 
 GitHub → Actions → **Staging** → Run workflow, then pick:
