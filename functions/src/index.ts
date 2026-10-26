@@ -6,6 +6,7 @@
 
 export { setUserRole } from './auth/setUserRole';
 export { approveSeller } from './sellers/approveSeller';
+export { suspendSeller } from './sellers/suspendSeller';
 export { approveProduct } from './products/approveProduct';
 
 export { createOrder } from './orders/createOrder';

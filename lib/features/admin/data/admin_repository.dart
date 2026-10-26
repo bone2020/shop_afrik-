@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
+import '../../../core/models/enums.dart';
 import '../../../core/models/order.dart';
 import '../../../core/models/product.dart';
 import '../../../core/models/refund_request.dart';
@@ -13,7 +14,7 @@ import '../../../core/models/staff_member.dart';
 /// callables. Seller approval and refund decisions are server-authoritative
 /// (they grant roles / move money), so they go through Cloud Functions.
 abstract interface class AdminRepository {
-  Stream<List<Seller>> watchPendingSellers();
+  Stream<List<Seller>> watchSellers(SellerApprovalStatus status);
   Stream<List<RefundRequest>> watchOpenRefunds();
   Stream<List<ShopOrder>> watchOrdersAwaitingQuote();
   Stream<List<ShopOrder>> watchOrdersToDispatch();
@@ -22,6 +23,11 @@ abstract interface class AdminRepository {
   Future<void> approveProduct(
       {required String productId, required bool approve});
   Future<void> approveSeller({required String sellerId, required bool approve});
+  Future<void> suspendSeller({
+    required String sellerId,
+    required bool suspend,
+    String? reason,
+  });
   Future<void> decideRefund({
     required String refundId,
     required bool approve,
@@ -44,10 +50,10 @@ class FirebaseAdminRepository implements AdminRepository {
   final FirebaseFunctions _functions;
 
   @override
-  Stream<List<Seller>> watchPendingSellers() {
+  Stream<List<Seller>> watchSellers(SellerApprovalStatus status) {
     return _db
         .collection(Collections.sellers)
-        .where('approvalStatus', isEqualTo: 'pending')
+        .where('approvalStatus', isEqualTo: status.name)
         .snapshots()
         .map((s) => s.docs.map((d) => Seller.fromMap(d.id, d.data())).toList());
   }
@@ -151,6 +157,19 @@ class FirebaseAdminRepository implements AdminRepository {
   }
 
   @override
+  Future<void> suspendSeller({
+    required String sellerId,
+    required bool suspend,
+    String? reason,
+  }) async {
+    await _functions.httpsCallable('suspendSeller').call({
+      'sellerId': sellerId,
+      'suspend': suspend,
+      if (reason != null) 'reason': reason,
+    });
+  }
+
+  @override
   Future<void> decideRefund({
     required String refundId,
     required bool approve,
@@ -169,8 +188,9 @@ final adminRepositoryProvider = Provider<AdminRepository>((ref) {
       FirebaseFirestore.instance, FirebaseFunctions.instance);
 });
 
-final pendingSellersProvider = StreamProvider.autoDispose<List<Seller>>((ref) {
-  return ref.watch(adminRepositoryProvider).watchPendingSellers();
+final sellersByStatusProvider = StreamProvider.autoDispose
+    .family<List<Seller>, SellerApprovalStatus>((ref, status) {
+  return ref.watch(adminRepositoryProvider).watchSellers(status);
 });
 
 final openRefundsProvider =

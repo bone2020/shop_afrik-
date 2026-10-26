@@ -19,6 +19,7 @@ class Seller {
     this.productCount = 0,
     this.logoUrl,
     this.phone,
+    this.suspensionReason,
     this.createdAt,
   });
 
@@ -38,6 +39,9 @@ class Seller {
   final int productCount;
   final String? logoUrl;
   final String? phone;
+
+  /// Why an admin suspended the store; set by the server (SA-063).
+  final String? suspensionReason;
   final DateTime? createdAt;
 
   /// A seller may transact only when KYC is verified and the account is
@@ -75,6 +79,7 @@ class Seller {
         productCount: (map['productCount'] as num?)?.toInt() ?? 0,
         logoUrl: map['logoUrl'] as String?,
         phone: map['phone'] as String?,
+        suspensionReason: map['suspensionReason'] as String?,
         createdAt: readDate(map['createdAt']),
       );
 }

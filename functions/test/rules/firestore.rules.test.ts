@@ -239,3 +239,16 @@ describe('products', () => {
     await assertFails(updateDoc(doc(seller(), 'products/p1'), { title: 'New' }));
   });
 });
+
+describe('settlements', () => {
+  it('a seller reads only their own payouts and nobody writes them', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'settlements/o1_s1'), { sellerId: 's1', status: 'settled' }),
+    );
+    await assertSucceeds(getDoc(doc(as('s1', { role: 'seller' }), 'settlements/o1_s1')));
+    await assertFails(getDoc(doc(as('s2', { role: 'seller' }), 'settlements/o1_s1')));
+    await assertFails(
+      updateDoc(doc(as('s1', { role: 'seller' }), 'settlements/o1_s1'), { status: 'onHold' }),
+    );
+  });
+});

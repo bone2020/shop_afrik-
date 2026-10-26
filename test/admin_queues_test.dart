@@ -25,9 +25,18 @@ class _FakeAdmin implements AdminRepository {
   final List<Seller> sellers;
   final List<RefundRequest> refunds;
   final List<Product> products;
+  final suspendCalls = <(String, bool, String?)>[];
 
   @override
-  Stream<List<Seller>> watchPendingSellers() => Stream.value(sellers);
+  Stream<List<Seller>> watchSellers(SellerApprovalStatus status) =>
+      Stream.value(sellers.where((s) => s.approvalStatus == status).toList());
+  @override
+  Future<void> suspendSeller({
+    required String sellerId,
+    required bool suspend,
+    String? reason,
+  }) async =>
+      suspendCalls.add((sellerId, suspend, reason));
   @override
   Stream<List<RefundRequest>> watchOpenRefunds() => Stream.value(refunds);
   @override
@@ -102,6 +111,63 @@ void main() {
     expect(approveButtons.length, 2);
     // Verified seller's Approve is enabled; unverified is disabled.
     expect(approveButtons.where((b) => b.onPressed != null).length, 1);
+  });
+
+  testWidgets('admin suspends an approved seller with a reason',
+      (tester) async {
+    final repo = _FakeAdmin(sellers: [
+      const Seller(
+        id: 's1',
+        storeName: 'Live Store',
+        ownerName: 'Ama',
+        market: 'GH',
+        kycStatus: KycStatus.verified,
+        approvalStatus: SellerApprovalStatus.approved,
+      ),
+    ]);
+
+    await tester.pumpWidget(_wrap(const SellerApprovalTab(), repo));
+    await tester.pumpAndSettle();
+    expect(find.text('Live Store'), findsNothing);
+
+    await tester.tap(find.text('Approved'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Suspend'));
+    await tester.pumpAndSettle();
+
+    // Suspend stays disabled until a reason is typed.
+    final confirm = find.widgetWithText(TextButton, 'Suspend');
+    expect(tester.widget<TextButton>(confirm).onPressed, isNull);
+    await tester.enterText(find.byType(TextField), 'Counterfeit goods');
+    await tester.pump();
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+
+    expect(repo.suspendCalls, [('s1', true, 'Counterfeit goods')]);
+  });
+
+  testWidgets('suspended sellers show the reason and can be reinstated',
+      (tester) async {
+    final repo = _FakeAdmin(sellers: [
+      const Seller(
+        id: 's2',
+        storeName: 'Paused Store',
+        ownerName: 'Bola',
+        market: 'GH',
+        approvalStatus: SellerApprovalStatus.suspended,
+        suspensionReason: 'Late deliveries',
+      ),
+    ]);
+
+    await tester.pumpWidget(_wrap(const SellerApprovalTab(), repo));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Suspended'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Suspended: Late deliveries'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Reinstate'));
+    await tester.pumpAndSettle();
+    expect(repo.suspendCalls, [('s2', false, null)]);
   });
 
   testWidgets('product approval queue lists pending products', (tester) async {

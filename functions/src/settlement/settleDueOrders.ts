@@ -60,6 +60,10 @@ export async function settleDue(now: Timestamp): Promise<void> {
     }
 
     try {
+      // A suspended seller's share is held until reinstated (SA-063); the
+      // other sellers on the order are still paid, and the order stays
+      // scheduled so the held share is retried on each run.
+      let held = false;
       for (const [sellerId, gross] of grossBySeller) {
         const rate = commissionFor(settings, null);
         const commission = applyRate(gross, rate);
@@ -81,6 +85,31 @@ export async function settleDue(now: Timestamp): Promise<void> {
           .collection(Collections.sellers)
           .doc(sellerId)
           .get();
+        if (sellerSnap.data()?.approvalStatus === 'suspended') {
+          held = true;
+          if (existing.data()?.status !== 'onHold') {
+            await settlementRef.set({
+              orderId: orderDoc.id,
+              sellerId,
+              gross,
+              commissionRate: rate,
+              commission,
+              net,
+              status: 'onHold',
+              holdReason: 'sellerSuspended',
+              dueAt: order.settlementDueAt ?? null,
+              createdAt: FieldValue.serverTimestamp(),
+            });
+            await writeAudit({
+              actorId: 'system',
+              action: 'settlement.held',
+              targetType: 'order',
+              targetId: orderDoc.id,
+              metadata: { sellerId, reason: 'sellerSuspended' },
+            });
+          }
+          continue;
+        }
         const sellerWalletId =
           (sellerSnap.data()?.qrWalletId as string) ?? sellerId;
 
@@ -149,6 +178,7 @@ export async function settleDue(now: Timestamp): Promise<void> {
         });
       }
 
+      if (held) continue;
       await orderDoc.ref.update({
         settlementStatus: 'settled',
         status: 'completed',
