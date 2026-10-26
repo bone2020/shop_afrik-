@@ -1,0 +1,101 @@
+name: Staging
+
+# Run by hand from the Actions tab: Staging → Run workflow. Only ever touches
+# the kartafrik-staging project (docs/STAGING.md).
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        default: deploy
+        options:
+          - deploy
+          - deploy and load test data
+          - load test data
+          - register apps
+          - backfill stores
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+env:
+  GCLOUD_PROJECT: kartafrik-staging
+
+jobs:
+  staging:
+    name: ${{ inputs.action }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: functions
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+      - name: Use the staging deploy key
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STAGING }}
+        run: |
+          if [ -z "$SERVICE_ACCOUNT" ]; then
+            echo "::error::Add the FIREBASE_SERVICE_ACCOUNT_STAGING secret first (docs/STAGING.md, step 5)."
+            exit 1
+          fi
+          printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/staging-key.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/staging-key.json" >> "$GITHUB_ENV"
+
+      - name: Deploy rules, indexes, storage rules and functions
+        if: startsWith(inputs.action, 'deploy')
+        working-directory: .
+        run: >
+          functions/node_modules/.bin/firebase deploy
+          --project "$GCLOUD_PROJECT"
+          --only firestore,storage,functions
+          --force --non-interactive
+
+      - name: Load test data
+        if: endsWith(inputs.action, 'load test data')
+        env:
+          STAGING_TEST_PASSWORD: ${{ secrets.STAGING_TEST_PASSWORD }}
+        run: node scripts/seed-staging.js
+
+      - name: Backfill store profiles
+        if: inputs.action == 'backfill stores'
+        run: node scripts/backfill-stores.js
+
+      - name: Register the staging apps and print their settings
+        if: inputs.action == 'register apps'
+        working-directory: .
+        run: |
+          fb="functions/node_modules/.bin/firebase --project $GCLOUD_PROJECT --non-interactive"
+          apps=$($fb apps:list --json)
+          if ! echo "$apps" | grep -q '"com.shopafrik.app.staging"'; then
+            $fb apps:create ANDROID "KartAfrik Staging" --package-name com.shopafrik.app.staging
+          fi
+          if ! echo "$apps" | grep -q '"com.shopafrik.shopAfrik"'; then
+            $fb apps:create IOS "KartAfrik Staging" --bundle-id com.shopafrik.shopAfrik
+          fi
+          # Client settings identify the project; they are not secrets.
+          $fb apps:list --json | node -e '
+            const apps = JSON.parse(require("fs").readFileSync(0)).result;
+            for (const a of apps) console.log(a.platform, a.appId);
+          ' | while read -r platform appId; do
+            echo "== $platform $appId"
+            $fb apps:sdkconfig "$platform" "$appId"
+          done
+
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/staging-key.json"

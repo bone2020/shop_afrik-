@@ -3,3 +3,5 @@ node_modules/
 *.log
 .env
 .env.*
+# Not secret: staging settings, safe to commit.
+!.env.kartafrik-staging
