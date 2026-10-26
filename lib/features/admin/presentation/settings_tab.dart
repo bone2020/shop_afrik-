@@ -59,6 +59,10 @@ class _SettingsEditorState extends ConsumerState<_SettingsEditor> {
       TextEditingController(text: '${s.refundWindowDays}');
   late final _delay =
       TextEditingController(text: '${s.settlementDelayDays}');
+  late final _quoteHours =
+      TextEditingController(text: '${s.quoteExpiryHours}');
+  late final _payHours =
+      TextEditingController(text: '${s.paymentExpiryHours}');
   late final Map<String, MarketConfig> _markets = {...s.markets};
   late final Map<String, (TextEditingController, TextEditingController)>
       _tiers = {
@@ -72,7 +76,7 @@ class _SettingsEditorState extends ConsumerState<_SettingsEditor> {
 
   @override
   void dispose() {
-    for (final c in [_commission, _fee, _window, _delay]) {
+    for (final c in [_commission, _fee, _window, _delay, _quoteHours, _payHours]) {
       c.dispose();
     }
     for (final (a, b) in _tiers.values) {
@@ -92,6 +96,10 @@ class _SettingsEditorState extends ConsumerState<_SettingsEditor> {
     if (window != s.refundWindowDays) patch['refundWindowDays'] = window;
     final delay = int.tryParse(_delay.text.trim());
     if (delay != s.settlementDelayDays) patch['settlementDelayDays'] = delay;
+    final quoteHours = int.tryParse(_quoteHours.text.trim());
+    if (quoteHours != s.quoteExpiryHours) patch['quoteExpiryHours'] = quoteHours;
+    final payHours = int.tryParse(_payHours.text.trim());
+    if (payHours != s.paymentExpiryHours) patch['paymentExpiryHours'] = payHours;
 
     final markets = _markets.map((k, v) => MapEntry(k, v.toMap()
       ..removeWhere((_, value) => value == null)));
@@ -203,6 +211,18 @@ class _SettingsEditorState extends ConsumerState<_SettingsEditor> {
         ]),
         const SizedBox(height: 4),
         const Text('Sellers must be paid after the refund window closes.',
+            style: TextStyle(color: AppColors.mutedText, fontSize: 12)),
+        const SizedBox(height: 20),
+        Text('Unpaid orders', style: title),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: field(_quoteHours, 'Wait for quote', 'hours', whole)),
+          const SizedBox(width: 12),
+          Expanded(child: field(_payHours, 'Wait for payment', 'hours', whole)),
+        ]),
+        const SizedBox(height: 4),
+        const Text('Orders still waiting after this are cancelled. Nothing is '
+            'charged before payment.',
             style: TextStyle(color: AppColors.mutedText, fontSize: 12)),
         const SizedBox(height: 20),
         Row(children: [

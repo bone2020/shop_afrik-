@@ -12,8 +12,10 @@ import '../data/seller_repository.dart';
 import 'seller_earnings_tab.dart';
 import 'seller_orders_tab.dart';
 import 'seller_products_tab.dart';
+import 'seller_refunds_tab.dart';
 
-/// Seller shell: store header (rating), then Products / Orders / Earnings tabs.
+/// Seller shell: store header (rating), then Products / Orders / Refunds /
+/// Earnings tabs.
 class SellerDashboardScreen extends ConsumerWidget {
   const SellerDashboardScreen({super.key});
 
@@ -24,7 +26,7 @@ class SellerDashboardScreen extends ConsumerWidget {
     final canList = seller?.approvalStatus == SellerApprovalStatus.approved;
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Seller Dashboard'),
@@ -41,6 +43,7 @@ class SellerDashboardScreen extends ConsumerWidget {
             tabs: [
               Tab(text: 'Products'),
               Tab(text: 'Orders'),
+              Tab(text: 'Refunds'),
               Tab(text: 'Earnings'),
             ],
           ),
@@ -55,6 +58,7 @@ class SellerDashboardScreen extends ConsumerWidget {
                 children: [
                   SellerProductsTab(),
                   SellerOrdersTab(),
+                  SellerRefundsTab(),
                   SellerEarningsTab(),
                 ],
               ),

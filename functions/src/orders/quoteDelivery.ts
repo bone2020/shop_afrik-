@@ -55,6 +55,7 @@ export const quoteDelivery = onCall(async (req) => {
       deliveryQuoteNote: note,
       total,
       status: 'awaitingPayment',
+      quotedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
     return order.buyerId as string;

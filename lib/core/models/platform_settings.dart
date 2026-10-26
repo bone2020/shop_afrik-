@@ -19,6 +19,8 @@ class PlatformSettings {
     this.refundTiersByCurrency = AppConfig.seedRefundTiers,
     this.refundWindowDays = 7,
     this.settlementDelayDays = 8,
+    this.quoteExpiryHours = 48,
+    this.paymentExpiryHours = 72,
     this.lowStockThresholdRatio = AppConfig.lowStockThresholdRatio,
     this.maxProductsPerSeller = AppConfig.maxProductsPerSeller,
     this.commissionByCategory = const {},
@@ -39,6 +41,12 @@ class PlatformSettings {
 
   final int refundWindowDays;
   final int settlementDelayDays;
+
+  /// Hours an order may wait for a delivery quote before it expires.
+  final int quoteExpiryHours;
+
+  /// Hours a quoted order may wait for payment before it expires.
+  final int paymentExpiryHours;
   final double lowStockThresholdRatio;
   final int maxProductsPerSeller;
 
@@ -77,6 +85,8 @@ class PlatformSettings {
             refundTiersByCurrency.map((k, v) => MapEntry(k, v.toMap())),
         'refundWindowDays': refundWindowDays,
         'settlementDelayDays': settlementDelayDays,
+        'quoteExpiryHours': quoteExpiryHours,
+        'paymentExpiryHours': paymentExpiryHours,
         'lowStockThresholdRatio': lowStockThresholdRatio,
         'maxProductsPerSeller': maxProductsPerSeller,
         'commissionByCategory': commissionByCategory,
@@ -103,6 +113,8 @@ class PlatformSettings {
             AppConfig.seedRefundTiers,
         refundWindowDays: (map['refundWindowDays'] as num?)?.toInt() ?? 7,
         settlementDelayDays: (map['settlementDelayDays'] as num?)?.toInt() ?? 8,
+        quoteExpiryHours: (map['quoteExpiryHours'] as num?)?.toInt() ?? 48,
+        paymentExpiryHours: (map['paymentExpiryHours'] as num?)?.toInt() ?? 72,
         lowStockThresholdRatio:
             (map['lowStockThresholdRatio'] as num?)?.toDouble() ??
                 AppConfig.lowStockThresholdRatio,

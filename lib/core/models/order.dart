@@ -164,6 +164,7 @@ class ShopOrder {
     this.settlementStatus = SettlementStatus.notDue,
     this.qrWalletTxnId,
     this.courierId,
+    this.cancelReason,
     this.deliveryConfirmedAt,
     this.settlementDueAt,
     this.createdAt,
@@ -210,6 +211,10 @@ class ShopOrder {
 
   /// Courier assigned to drop this order off (admin-assigned; SA-120).
   final String? courierId;
+
+  /// Why a cancelled order was cancelled by the system, e.g. `quoteExpired`
+  /// or `paymentExpired` (SA-042). Null when the buyer cancelled.
+  final String? cancelReason;
 
   /// When the courier confirmed delivery — starts the 7-day refund window.
   final DateTime? deliveryConfirmedAt;
@@ -279,6 +284,7 @@ class ShopOrder {
             SettlementStatus.fromName(map['settlementStatus'] as String?),
         qrWalletTxnId: map['qrWalletTxnId'] as String?,
         courierId: map['courierId'] as String?,
+        cancelReason: map['cancelReason'] as String?,
         deliveryConfirmedAt: readDate(map['deliveryConfirmedAt']),
         settlementDueAt: readDate(map['settlementDueAt']),
         createdAt: readDate(map['createdAt']),

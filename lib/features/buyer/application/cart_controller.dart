@@ -18,9 +18,11 @@ class CartLine {
       CartLine(product: product, quantity: quantity ?? this.quantity);
 }
 
-/// Local, in-memory cart. A cart holds a single currency: products are priced
-/// in their seller's market currency, and money is never blended across
+/// The buyer's cart. A cart holds a single currency: products are priced in
+/// their seller's market currency, and money is never blended across
 /// currencies, so a product from a different currency cannot be added.
+/// [cartSyncProvider] saves it to the buyer's profile and restores it on
+/// sign-in (SA-045).
 class CartController extends Notifier<List<CartLine>> {
   @override
   List<CartLine> build() => const [];
@@ -61,6 +63,19 @@ class CartController extends Notifier<List<CartLine>> {
       state = state.where((l) => l.product.id != productId).toList();
 
   void clear() => state = const [];
+
+  /// Adds saved [lines] behind anything already in the cart, skipping
+  /// products already present or in another currency.
+  void restore(List<CartLine> lines) {
+    var next = [...state];
+    for (final l in lines) {
+      final cur = next.isEmpty ? null : next.first.product.price.currency;
+      if (next.any((x) => x.product.id == l.product.id)) continue;
+      if (cur != null && l.product.price.currency != cur) continue;
+      next = [...next, l];
+    }
+    state = next;
+  }
 }
 
 final cartProvider =

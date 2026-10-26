@@ -46,6 +46,7 @@ class RefundRequest {
     this.firstApproverId,
     this.secondApproverId,
     this.decisionNote,
+    this.sellerResponses = const {},
     this.createdAt,
     this.resolvedAt,
   });
@@ -68,6 +69,9 @@ class RefundRequest {
   /// Supervisor who provided the second approval for tier-2 refunds.
   final String? secondApproverId;
   final String? decisionNote;
+
+  /// Each seller's reply on this request, keyed by seller id (SA-055).
+  final Map<String, String> sellerResponses;
   final DateTime? createdAt;
   final DateTime? resolvedAt;
 
@@ -113,6 +117,10 @@ class RefundRequest {
         firstApproverId: map['firstApproverId'] as String?,
         secondApproverId: map['secondApproverId'] as String?,
         decisionNote: map['decisionNote'] as String?,
+        sellerResponses: {
+          for (final e in ((map['sellerResponses'] as Map?) ?? const {}).entries)
+            e.key as String: ((e.value as Map?)?['text'] as String?) ?? '',
+        },
         createdAt: readDate(map['createdAt']),
         resolvedAt: readDate(map['resolvedAt']),
       );

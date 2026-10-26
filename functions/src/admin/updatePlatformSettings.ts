@@ -10,6 +10,8 @@ type Patch = Partial<{
   paymentFeeRate: number;
   refundWindowDays: number;
   settlementDelayDays: number;
+  quoteExpiryHours: number;
+  paymentExpiryHours: number;
   markets: Record<string, MarketConfig>;
   refundTiersByCurrency: Record<string, RefundTierCeilings>;
 }>;
@@ -83,6 +85,12 @@ export const updatePlatformSettings = onCall(async (req) => {
   }
   if (patch.settlementDelayDays !== undefined) {
     update.settlementDelayDays = days(patch.settlementDelayDays, 'Settlement delay', 1, 60);
+  }
+  if (patch.quoteExpiryHours !== undefined) {
+    update.quoteExpiryHours = days(patch.quoteExpiryHours, 'Quote wait (hours)', 1, 336);
+  }
+  if (patch.paymentExpiryHours !== undefined) {
+    update.paymentExpiryHours = days(patch.paymentExpiryHours, 'Payment wait (hours)', 1, 336);
   }
   const window = (update.refundWindowDays as number | undefined) ?? current.refundWindowDays;
   const delay = (update.settlementDelayDays as number | undefined) ?? current.settlementDelayDays;

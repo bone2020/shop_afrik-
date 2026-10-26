@@ -30,6 +30,10 @@ export interface PlatformSettings {
   refundTiersByCurrency: Record<string, RefundTierCeilings>;
   refundWindowDays: number;
   settlementDelayDays: number;
+  /** Hours an order may wait for a delivery quote before it expires. */
+  quoteExpiryHours: number;
+  /** Hours a quoted order may wait for payment before it expires. */
+  paymentExpiryHours: number;
   lowStockThresholdRatio: number;
   maxProductsPerSeller: number;
   commissionByCategory: Record<string, number>;
@@ -65,6 +69,8 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   },
   refundWindowDays: 7,
   settlementDelayDays: 8,
+  quoteExpiryHours: 48,
+  paymentExpiryHours: 72,
   lowStockThresholdRatio: 0.2,
   maxProductsPerSeller: 500,
   commissionByCategory: {},

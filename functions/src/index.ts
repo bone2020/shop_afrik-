@@ -19,6 +19,7 @@ export { quoteDelivery } from './orders/quoteDelivery';
 export { payOrder } from './orders/payOrder';
 export { assignCourier } from './orders/assignCourier';
 export { releaseExpiredReservations } from './orders/releaseExpiredReservations';
+export { expireStaleOrders } from './orders/expireStaleOrders';
 export {
   markShipped,
   markDelivered,
@@ -28,6 +29,7 @@ export {
 
 export { requestRefund } from './refunds/requestRefund';
 export { decideRefund } from './refunds/decideRefund';
+export { respondToRefund } from './refunds/respondToRefund';
 
 export { settleDueOrders } from './settlement/settleDueOrders';
 

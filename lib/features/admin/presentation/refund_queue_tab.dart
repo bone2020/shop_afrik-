@@ -94,6 +94,13 @@ class _RefundCardState extends ConsumerState<_RefundCard> {
                 style: const TextStyle(color: AppColors.mutedText, fontSize: 12)),
             const SizedBox(height: 8),
             Text(r.reason),
+            for (final reply in r.sellerResponses.values)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Seller: $reply',
+                    style: const TextStyle(
+                        color: AppColors.mutedText, fontStyle: FontStyle.italic)),
+              ),
             if (awaitingSecond)
               const Padding(
                 padding: EdgeInsets.only(top: 8),

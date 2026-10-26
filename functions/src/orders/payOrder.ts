@@ -6,7 +6,8 @@ import { notify } from '../lib/notify';
 import { recordLedgerMove } from '../lib/ledger';
 import { writeAudit } from '../lib/audit';
 import * as qrWallet from '../lib/qrWallet';
-import { releaseStock, reservationExpiry, reserveStock } from './stockReservation';
+import { releaseStock, reservationExpiry, reserveStock, StockChange } from './stockReservation';
+import { notifyLowStock } from '../products/lowStock';
 import { Collections, Money, OrderItem, PaymentMethod } from '../types';
 
 /**
@@ -37,6 +38,7 @@ export const payOrder = onCall(async (req) => {
   const orderRef = db.collection(Collections.orders).doc(orderId);
 
   // Step 1: reserve stock and mark the payment as in progress, atomically.
+  let stockChanges: StockChange[] = [];
   const order = await db.runTransaction(async (tx) => {
     const snap = await tx.get(orderRef);
     if (!snap.exists) throw new HttpsError('not-found', 'Order not found.');
@@ -56,7 +58,7 @@ export const payOrder = onCall(async (req) => {
         'A payment for this order is already in progress.',
       );
     }
-    await reserveStock(tx, (o.items ?? []) as OrderItem[]);
+    stockChanges = await reserveStock(tx, (o.items ?? []) as OrderItem[]);
     tx.update(orderRef, {
       stockReserved: true,
       reservationExpiresAt: reservationExpiry(),
@@ -136,6 +138,8 @@ export const payOrder = onCall(async (req) => {
     type: 'order_confirmed',
     deepLink: `/buyer/orders/${orderId}`,
   });
+
+  await notifyLowStock(stockChanges);
 
   return { ok: true, status: 'confirmed' };
 });
