@@ -6,6 +6,7 @@ import '../../../core/router/routes.dart';
 import '../../../services/session_controller.dart';
 import '../../notifications/presentation/notifications_bell.dart';
 import '../application/cart_controller.dart';
+import '../application/cart_sync.dart';
 import 'buyer_orders_tab.dart';
 import 'cart_tab.dart';
 import 'shop_tab.dart';
@@ -26,6 +27,8 @@ class _BuyerHomeScreenState extends ConsumerState<BuyerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final cartCount = ref.watch(cartCountProvider);
+    // Restores the saved cart on sign-in and saves every change (SA-045).
+    ref.watch(cartSyncProvider);
 
     return Scaffold(
       appBar: AppBar(

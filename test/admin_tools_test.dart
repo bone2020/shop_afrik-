@@ -91,6 +91,16 @@ Future<void> _pump(WidgetTester tester, Widget child, _FakeTools repo,
   await tester.pumpAndSettle();
 }
 
+/// Scrolls the settings page to the bottom and taps Save.
+Future<void> _save(WidgetTester tester) async {
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump();
+  await tester.scrollUntilVisible(find.text('Save settings'), 300,
+      scrollable: find.byType(Scrollable).first);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Save settings'));
+}
+
 const _ama = FoundUser(uid: 'u1', role: 'buyer', email: 'ama@test.dev');
 
 void main() {
@@ -148,7 +158,7 @@ void main() {
 
       await tester.enterText(
           find.widgetWithText(TextField, 'Commission'), '12.5');
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Save settings'));
+      await _save(tester);
       await tester.pumpAndSettle();
 
       expect(repo.settingsPatches, [
@@ -161,7 +171,7 @@ void main() {
       await _pump(tester, const SettingsTab(), repo);
       await tester.tap(find.byType(Switch).first);
       await tester.pump();
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Save settings'));
+      await _save(tester);
       await tester.pumpAndSettle();
 
       final markets = repo.settingsPatches.single['markets'] as Map;

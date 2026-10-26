@@ -313,3 +313,14 @@ describe('product removal (SA-044)', () => {
     await assertSucceeds(updateDoc(doc(db, 'products/p1'), { isActive: false }));
   });
 });
+
+describe('seller refund list (SA-055)', () => {
+  it('a seller can list refunds on their own orders only', async () => {
+    const { collection, query, where, getDocs } = await import('firebase/firestore');
+    const db = as('seller1', { role: 'seller' });
+    await assertSucceeds(
+      getDocs(query(collection(db, 'refund_requests'), where('sellerIds', 'array-contains', 'seller1'))),
+    );
+    await assertFails(getDocs(collection(db, 'refund_requests')));
+  });
+});

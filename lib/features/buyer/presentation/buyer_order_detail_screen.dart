@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/util/callable_error.dart';
 import '../../../core/util/money_format.dart';
 import '../../orders/data/orders_repository.dart';
+import '../../orders/presentation/order_receipt.dart';
 import '../../orders/presentation/order_status_chip.dart';
 import '../../reviews/data/reviews_repository.dart';
 import '../data/order_service.dart';
@@ -161,6 +162,14 @@ class _DetailState extends ConsumerState<_Detail> {
               style: TextStyle(color: AppColors.dangerCoral)),
         ),
       ]);
+    }
+
+    if (hasReceipt(o)) {
+      widgets.add(OutlinedButton.icon(
+        onPressed: () => showOrderReceipt(context, o),
+        icon: const Icon(Icons.receipt_long),
+        label: const Text('View receipt'),
+      ));
     }
 
     widgets.addAll(_refundSection(o));
@@ -383,6 +392,13 @@ class _Tracking extends StatelessWidget {
           title: Text(order.status == OrderStatus.cancelled
               ? 'Order cancelled'
               : 'Order refunded'),
+          subtitle: switch (order.cancelReason) {
+            'quoteExpired' => const Text(
+                'We could not quote delivery in time. Nothing was charged.'),
+            'paymentExpired' =>
+              const Text('It was not paid in time. Nothing was charged.'),
+            _ => null,
+          },
         ),
       );
     }
