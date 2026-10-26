@@ -20,4 +20,11 @@ void main() {
     expect(StagingFirebaseOptions.android.projectId, 'kartafrik-staging');
     expect(StagingFirebaseOptions.ios.projectId, 'kartafrik-staging');
   });
+
+  test('staging apps are registered for Android and iOS', () {
+    expect(StagingFirebaseOptions.android.appId, contains(':android:'));
+    expect(StagingFirebaseOptions.ios.appId, contains(':ios:'));
+    expect(StagingFirebaseOptions.android.apiKey, isNotEmpty);
+    expect(StagingFirebaseOptions.ios.apiKey, isNotEmpty);
+  });
 }
