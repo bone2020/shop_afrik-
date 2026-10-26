@@ -22,7 +22,7 @@ jobs:
       - run: flutter test
 
   functions:
-    name: Cloud Functions build and lint
+    name: Cloud Functions build, lint and emulator tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -37,3 +37,9 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run lint
+      # Emulator tests (Functions + security rules) need Java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm test
