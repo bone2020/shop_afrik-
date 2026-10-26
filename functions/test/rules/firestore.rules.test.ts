@@ -252,3 +252,14 @@ describe('settlements', () => {
     );
   });
 });
+
+describe('settings', () => {
+  it('signed-in users read settings but nobody writes them directly', async () => {
+    await assertSucceeds(getDoc(doc(as('buyer1'), 'settings/platform')));
+    await assertFails(
+      setDoc(doc(as('super1', { role: 'admin', adminTier: 'supervisor' }), 'settings/platform'), {
+        commissionRate: 0,
+      }),
+    );
+  });
+});
