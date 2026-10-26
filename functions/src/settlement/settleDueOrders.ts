@@ -19,8 +19,12 @@ import { Collections, Money, OrderItem, applyRate, money } from '../types';
  * re-run never double-pays.
  */
 export const settleDueOrders = onSchedule('every day 02:00', async () => {
+  await settleDue(Timestamp.now());
+});
+
+/** One settlement run as of [now]; exported for tests. */
+export async function settleDue(now: Timestamp): Promise<void> {
   const settings = await loadSettings();
-  const now = Timestamp.now();
 
   const due = await db
     .collection(Collections.orders)
@@ -29,8 +33,12 @@ export const settleDueOrders = onSchedule('every day 02:00', async () => {
     .limit(200)
     .get();
 
-  for (const orderDoc of due.docs) {
+  for (const queued of due.docs) {
+    // Re-read: a refund opened since the query puts settlement on hold, and
+    // a held order must never be paid out (SA-051).
+    const orderDoc = await queued.ref.get();
     const order = orderDoc.data();
+    if (!order || order.settlementStatus !== 'scheduled') continue;
     const items = (order.items ?? []) as OrderItem[];
 
     // Sum each seller's gross share of the subtotal.
@@ -163,4 +171,4 @@ export const settleDueOrders = onSchedule('every day 02:00', async () => {
       });
     }
   }
-});
+}

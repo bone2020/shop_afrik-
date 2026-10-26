@@ -112,6 +112,17 @@ describe('refund requests (SA-140)', () => {
     );
   });
 
+  it('buyers cannot create refund requests directly (SA-050)', async () => {
+    await assertFails(
+      setDoc(doc(as('buyer1'), 'refund_requests/forged'), {
+        buyerId: 'buyer1',
+        orderId: 'o1',
+        status: 'requested',
+        amount: { minorUnits: 99999999, currency: 'GHS' },
+      }),
+    );
+  });
+
   it('seller B cannot read seller A\'s refund', async () => {
     await assertFails(
       getDoc(doc(as('seller2', { role: 'seller' }), 'refund_requests/r1')),
