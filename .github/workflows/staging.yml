@@ -80,7 +80,7 @@ jobs:
           names=$(node -e '
             const fns = require("./lib/index.js");
             for (const [name, fn] of Object.entries(fns)) {
-              if (fn?.__endpoint?.callableTrigger) console.log(name.toLowerCase());
+              if (fn?.__endpoint?.callableTrigger) console.log(name.toLowerCase().replace(/_/g, "-"));
             }
           ')
           if [ -z "$names" ]; then
