@@ -47,7 +47,7 @@ abstract final class AppColors {
   static const Color warning = accentGold;
 
   /// Neutral informational states.
-  static const Color info = Color(0xFF60A5FA);
+  static const Color info = Color(0xFF7DB3FF);
 
   /// Secondary labels and helper text.
   static const Color mutedText = Color(0xFF9AA4B2);
