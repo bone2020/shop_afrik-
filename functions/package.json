@@ -4,7 +4,7 @@
   "description": "Cloud Functions for Shop Afrik — orders, payments, refunds, settlement.",
   "main": "lib/index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "build": "tsc",
