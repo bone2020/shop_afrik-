@@ -1,27 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
 import '../../../core/models/review.dart';
 
-/// Buyer reviews. A buyer may review a product from a delivered order (the
-/// rules require the author to own the review and a 1–5 rating; verified-
-/// purchase enforcement is server-side).
+/// Buyer reviews. A buyer reviews a product from a delivered order through
+/// the `submitReview` function, which checks the order line, keeps one review
+/// per line (sending again edits it) and recomputes ratings (SA-111).
 abstract interface class ReviewsRepository {
-  Future<void> addReview(Review review);
+  Future<void> submitReview({
+    required String orderId,
+    required String productId,
+    required int rating,
+    String? comment,
+  });
   Stream<List<Review>> watchForProduct(String productId);
 }
 
 class FirestoreReviewsRepository implements ReviewsRepository {
-  FirestoreReviewsRepository(this._db);
+  FirestoreReviewsRepository(this._db, this._functions);
 
   final FirebaseFirestore _db;
+  final FirebaseFunctions _functions;
 
   @override
-  Future<void> addReview(Review review) async {
-    await _db.collection(Collections.reviews).add({
-      ...review.toMap(),
-      'createdAt': DateTime.now().toIso8601String(),
+  Future<void> submitReview({
+    required String orderId,
+    required String productId,
+    required int rating,
+    String? comment,
+  }) async {
+    await _functions.httpsCallable('submitReview').call({
+      'orderId': orderId,
+      'productId': productId,
+      'rating': rating,
+      if (comment != null) 'comment': comment,
     });
   }
 
@@ -36,7 +50,8 @@ class FirestoreReviewsRepository implements ReviewsRepository {
 }
 
 final reviewsRepositoryProvider = Provider<ReviewsRepository>((ref) {
-  return FirestoreReviewsRepository(FirebaseFirestore.instance);
+  return FirestoreReviewsRepository(
+      FirebaseFirestore.instance, FirebaseFunctions.instance);
 });
 
 final productReviewsProvider =

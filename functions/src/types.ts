@@ -6,6 +6,7 @@ export const Collections = {
   categories: 'categories',
   orders: 'orders',
   sellers: 'sellers',
+  stores: 'stores',
   buyers: 'buyers',
   reviews: 'reviews',
   refundRequests: 'refund_requests',

@@ -8,6 +8,9 @@ import '../../../services/session_controller.dart';
 /// Reads a seller's own store profile (rating, market, approval/KYC status).
 abstract interface class SellerRepository {
   Stream<Seller?> watchSeller(String sellerId);
+
+  /// Another seller's public store profile (name, market, logo, rating).
+  Stream<Seller?> watchStore(String sellerId);
 }
 
 class FirestoreSellerRepository implements SellerRepository {
@@ -23,6 +26,17 @@ class FirestoreSellerRepository implements SellerRepository {
         .snapshots()
         .map((d) => d.exists ? Seller.fromMap(d.id, d.data()!) : null);
   }
+
+  @override
+  Stream<Seller?> watchStore(String sellerId) {
+    return _db
+        .collection(Collections.stores)
+        .doc(sellerId)
+        .snapshots()
+        .map((d) => d.exists && d.data()!['listed'] == true
+            ? Seller.fromMap(d.id, d.data()!)
+            : null);
+  }
 }
 
 final sellerRepositoryProvider = Provider<SellerRepository>((ref) {
@@ -37,7 +51,8 @@ final currentSellerProvider = StreamProvider.autoDispose<Seller?>((ref) {
 });
 
 /// Any seller's public profile, by id (for the storefront page).
+/// A seller's public store profile, for buyers.
 final sellerByIdProvider =
     StreamProvider.autoDispose.family<Seller?, String>((ref, id) {
-  return ref.watch(sellerRepositoryProvider).watchSeller(id);
+  return ref.watch(sellerRepositoryProvider).watchStore(id);
 });

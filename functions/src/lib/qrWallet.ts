@@ -1,3 +1,4 @@
+import { logger } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { Money } from '../types';
 import { mockBonsPay } from './mockBonsPay';
@@ -96,42 +97,80 @@ function backend(): QrWalletBackend {
   return mockBonsPay;
 }
 
+/**
+ * The message a client sees for a failed wallet call, by error code (SA-147).
+ * The original error is logged and kept on `cause` for the audit trail, but
+ * never sent to the app.
+ */
+const CLIENT_MESSAGES: Record<string, string> = {
+  'aborted': 'The payment was declined.',
+  'failed-precondition': 'The payment could not be completed.',
+  'deadline-exceeded':
+    'The payment service did not respond. We will check the payment and update your order.',
+};
+
+async function call<T>(
+  op: string,
+  run: (backend: QrWalletBackend) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(backend());
+  } catch (e) {
+    const code = e instanceof HttpsError ? e.code : 'unavailable';
+    logger.error('QR Wallet call failed', { op, code, error: (e as Error).message });
+    const safe = new HttpsError(
+      code === 'aborted' || code === 'failed-precondition' || code === 'deadline-exceeded'
+        ? code
+        : 'unavailable',
+      CLIENT_MESSAGES[code] ?? 'The payment service is unavailable. Please try again.',
+    );
+    (safe as { cause?: unknown }).cause = e;
+    throw safe;
+  }
+}
+
+/** The underlying reason for a failed wallet call, for logs and the audit. */
+export function failureDetail(e: unknown): string {
+  const cause = (e as { cause?: unknown })?.cause;
+  return ((cause ?? e) as Error)?.message ?? String(e);
+}
+
 /** Pay now: buyer wallet → escrow. Returns the QR Wallet transaction id. */
 export async function capture(input: BuyerMoveInput): Promise<string> {
-  return backend().capture(input);
+  return call('capture', (b) => b.capture(input));
 }
 
 /** Pay on delivery: authorization hold on the buyer wallet. */
 export async function hold(input: BuyerMoveInput): Promise<string> {
-  return backend().hold(input);
+  return call('hold', (b) => b.hold(input));
 }
 
 /** Pay on delivery: capture an existing hold into escrow. */
 export async function captureHold(input: CaptureHoldInput): Promise<string> {
-  return backend().captureHold(input);
+  return call('captureHold', (b) => b.captureHold(input));
 }
 
 /** Release an uncaptured hold back to the buyer. */
 export async function releaseHold(input: BuyerMoveInput): Promise<string> {
-  return backend().releaseHold(input);
+  return call('releaseHold', (b) => b.releaseHold(input));
 }
 
 /** Escrow → buyer wallet (refund or cancellation). */
 export async function refundFromEscrow(input: BuyerMoveInput): Promise<string> {
-  return backend().refundFromEscrow(input);
+  return call('refundFromEscrow', (b) => b.refundFromEscrow(input));
 }
 
 /** Escrow → payable (net) + commission. */
 export async function settleToPayable(input: SettleInput): Promise<string> {
-  return backend().settleToPayable(input);
+  return call('settleToPayable', (b) => b.settleToPayable(input));
 }
 
 /** Payable → seller wallet. Returns the payout id. */
 export async function payoutToSeller(input: PayoutInput): Promise<string> {
-  return backend().payoutToSeller(input);
+  return call('payoutToSeller', (b) => b.payoutToSeller(input));
 }
 
 /** Reads the platform account's three buckets for one currency. */
 export async function getBalances(currency: string): Promise<PlatformBalances> {
-  return backend().getBalances(currency);
+  return call('getBalances', (b) => b.getBalances(currency));
 }

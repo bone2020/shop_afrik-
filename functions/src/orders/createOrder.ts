@@ -138,6 +138,11 @@ export const createOrder = onCall(async (req) => {
     // to the total when the order moves to awaitingPayment (v2 §5).
     const total = addMoney(sub, paymentFee);
 
+    // Mark every ordered product so removing it archives instead of deleting
+    // (SA-044). Writes come after all the reads above.
+    for (const item of items) {
+      tx.update(db.collection(Collections.products).doc(item.productId), { hasOrders: true });
+    }
     const orderRef = db.collection(Collections.orders).doc();
     const sellerIds = [...new Set(items.map((i) => i.sellerId))];
     const data = {

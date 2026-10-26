@@ -78,14 +78,20 @@ service cloud.firestore {
                         && sellerProfile().approvalStatus == 'approved'
                         && request.resource.data.approvalStatus == resource.data.approvalStatus
                         && request.resource.data.ratingAverage == resource.data.ratingAverage
-                        && request.resource.data.ratingCount == resource.data.ratingCount);
+                        && request.resource.data.ratingCount == resource.data.ratingCount
+                        && request.resource.data.get('hasOrders', false) == resource.data.get('hasOrders', false)
+                        && request.resource.data.get('archived', false) == resource.data.get('archived', false));
 
-      allow delete: if isAdmin() || (isSeller() && isOwner(resource.data.sellerId));
+      // Sellers remove products through removeProduct, which archives any
+      // product that has been ordered (SA-044).
+      allow delete: if false;
     }
 
     // ---- sellers ----
+    // Private to the seller and admins (SA-141). The public store profile
+    // is `stores/{sellerId}`, copied from here by syncStoreProfile.
     match /sellers/{sellerId} {
-      allow read: if true; // public store profiles
+      allow read: if isOwner(sellerId) || isAdmin();
       allow create: if isOwner(sellerId)
                     && hasVerifiedContact()
                     && request.resource.data.kycStatus == 'notStarted'
@@ -99,6 +105,12 @@ service cloud.firestore {
                         && request.resource.data.ratingAverage == resource.data.ratingAverage
                         && request.resource.data.ratingCount == resource.data.ratingCount);
       allow delete: if isAdmin();
+    }
+
+    // ---- stores ----
+    match /stores/{sellerId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // ---- buyers ----
@@ -125,12 +137,9 @@ service cloud.firestore {
     // ---- reviews ----
     match /reviews/{reviewId} {
       allow read: if true;
-      // Verified-purchase enforcement happens server-side; rules ensure the
-      // author writes their own well-formed review.
-      allow create: if isOwner(request.resource.data.buyerId)
-                    && request.resource.data.rating >= 1
-                    && request.resource.data.rating <= 5;
-      allow update, delete: if isOwner(resource.data.buyerId) || isAdmin();
+      // Written only by submitReview / deleteReview, which check for a
+      // delivered order line and recompute ratings (SA-111).
+      allow write: if false;
     }
 
     // ---- refund_requests ----
