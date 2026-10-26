@@ -154,6 +154,14 @@ class _EmailFormState extends ConsumerState<_EmailForm> {
               validator: (v) =>
                   (v == null || v.length < 6) ? 'At least 6 characters' : null,
             ),
+            if (!_signUp)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _busy ? null : _forgotPassword,
+                  child: const Text('Forgot password?'),
+                ),
+              ),
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!,
@@ -184,6 +192,68 @@ class _EmailFormState extends ConsumerState<_EmailForm> {
         ),
       ),
     );
+  }
+
+  /// Sends a reset link (SA-101). The reply is the same whether or not an
+  /// account exists, so the form cannot be used to discover accounts.
+  Future<void> _forgotPassword() async {
+    final controller = TextEditingController(text: _email.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset your password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Signed up with your phone? Use the Phone tab to get a new code '
+              'instead.',
+              style: TextStyle(color: AppColors.mutedText),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('Send link'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (email == null || !email.contains('@')) return;
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authServiceProvider).sendPasswordReset(email);
+    } on FirebaseAuthException catch (e) {
+      // Only surface errors that do not reveal whether the account exists.
+      if (e.code == 'invalid-email' ||
+          e.code == 'too-many-requests' ||
+          e.code == 'network-request-failed') {
+        if (mounted) setState(() => _error = authErrorMessage(e));
+        return;
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('If $email has an account, a reset link is on its way.')));
   }
 
   Future<void> _submit() async {

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shop_afrik/core/data/platform_settings_repository.dart';
 import 'package:shop_afrik/core/models/enums.dart';
 import 'package:shop_afrik/core/models/order.dart';
+import 'package:shop_afrik/core/models/platform_settings.dart';
 import 'package:shop_afrik/core/theme/app_theme.dart';
+import 'package:shop_afrik/features/buyer/data/refund_service.dart';
 import 'package:shop_afrik/features/buyer/presentation/buyer_order_detail_screen.dart';
 import 'package:shop_afrik/features/orders/data/orders_repository.dart';
 
@@ -23,6 +26,9 @@ class _FakeOrders implements OrdersRepository {
 Widget _wrap(ShopOrder order) => ProviderScope(
       overrides: [
         ordersRepositoryProvider.overrideWithValue(_FakeOrders(order)),
+        orderRefundsProvider.overrideWith((ref, id) => Stream.value(const [])),
+        platformSettingsProvider
+            .overrideWith((ref) => Stream.value(const PlatformSettings())),
       ],
       child: MaterialApp(
         theme: AppTheme.dark,

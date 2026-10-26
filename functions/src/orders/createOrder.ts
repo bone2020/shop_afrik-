@@ -38,6 +38,14 @@ interface DeliveryLocationInput {
  */
 export const createOrder = onCall(async (req) => {
   const buyerId = requireAuth(req);
+  // Email accounts must verify their address before checking out (SA-102).
+  // Phone accounts have no email claim and are verified by their SMS code.
+  if (req.auth?.token.email && req.auth.token.email_verified !== true) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Please verify your email address before checking out.',
+    );
+  }
 
   const lines = (req.data?.items ?? []) as CartLine[];
   const location = req.data?.deliveryLocation as DeliveryLocationInput | undefined;

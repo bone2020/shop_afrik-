@@ -5,6 +5,8 @@ import '../../../core/data/platform_settings_repository.dart';
 import '../../../core/models/platform_settings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../services/session_controller.dart';
+import '../../auth/data/auth_service.dart';
+import '../../auth/presentation/email_verification_banner.dart';
 import '../data/seller_application_service.dart';
 
 /// Seller application form. Submitting creates a pending seller record that
@@ -25,6 +27,8 @@ class _SellerOnboardingScreenState
   final _phone = TextEditingController();
   String? _market;
   bool _busy = false;
+  late bool _needsEmailVerification =
+      ref.read(authServiceProvider).needsEmailVerification;
 
   @override
   void dispose() {
@@ -88,8 +92,16 @@ class _SellerOnboardingScreenState
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 24),
+            if (_needsEmailVerification) ...[
+              EmailVerificationBanner(
+                action: 'apply',
+                onVerified: () =>
+                    setState(() => _needsEmailVerification = false),
+              ),
+              const SizedBox(height: 12),
+            ],
             ElevatedButton(
-              onPressed: (selected == null || _busy)
+              onPressed: (selected == null || _busy || _needsEmailVerification)
                   ? null
                   : () => _submit(selected),
               child: _busy

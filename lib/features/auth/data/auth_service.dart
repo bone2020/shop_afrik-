@@ -37,7 +37,37 @@ class AuthService {
     final cred = await _auth.createUserWithEmailAndPassword(
         email: email.trim(), password: password);
     await cred.user?.updateDisplayName(displayName.trim());
+    // Checkout and selling require a verified email (SA-102).
+    await cred.user?.sendEmailVerification();
     return cred;
+  }
+
+  /// Sends a password-reset link (SA-101). Phone accounts recover by signing
+  /// in with a new SMS code instead.
+  Future<void> sendPasswordReset(String email) =>
+      _auth.sendPasswordResetEmail(email: email.trim());
+
+  /// True for an email/password account whose address is not verified yet.
+  /// Phone accounts are verified by their SMS code.
+  bool get needsEmailVerification {
+    final user = _auth.currentUser;
+    return user != null &&
+        user.email != null &&
+        user.providerData.any((p) => p.providerId == 'password') &&
+        !user.emailVerified;
+  }
+
+  Future<void> sendEmailVerification() =>
+      _auth.currentUser?.sendEmailVerification() ?? Future.value();
+
+  /// Re-reads the account after the user taps the link in their email, and
+  /// refreshes the ID token so the server sees `email_verified`.
+  Future<bool> refreshEmailVerified() async {
+    await _auth.currentUser?.reload();
+    final user = _auth.currentUser;
+    if (user == null || !user.emailVerified) return false;
+    await user.getIdToken(true);
+    return true;
   }
 
   // --- Phone / OTP ---

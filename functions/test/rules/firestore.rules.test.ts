@@ -140,6 +140,26 @@ describe('staff directory', () => {
   });
 });
 
+describe('seller applications (SA-102)', () => {
+  const application = {
+    storeName: 'Ama Crafts',
+    kycStatus: 'notStarted',
+    approvalStatus: 'pending',
+  };
+
+  it('an unverified email account cannot apply', async () => {
+    const db = as('newSeller', { email: 'a@test.dev', email_verified: false });
+    await assertFails(setDoc(doc(db, 'sellers/newSeller'), application));
+  });
+
+  it('verified email and phone accounts can apply', async () => {
+    const verified = as('s1', { email: 'b@test.dev', email_verified: true });
+    await assertSucceeds(setDoc(doc(verified, 'sellers/s1'), application));
+    const phone = as('s2', { phone_number: '+233200000000' });
+    await assertSucceeds(setDoc(doc(phone, 'sellers/s2'), application));
+  });
+});
+
 describe('notifications', () => {
   it('recipient may only flip isRead', async () => {
     const db = as('buyer1');

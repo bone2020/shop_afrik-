@@ -28,6 +28,12 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
     // True if only the named fields changed between the old and new docs.
+    // Email accounts must have verified their address (SA-102); phone
+    // accounts carry no email claim.
+    function hasVerifiedContact() {
+      return !('email' in request.auth.token)
+             || request.auth.token.email_verified == true;
+    }
     function onlyChanged(fields) {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(fields);
@@ -73,6 +79,7 @@ service cloud.firestore {
     match /sellers/{sellerId} {
       allow read: if true; // public store profiles
       allow create: if isOwner(sellerId)
+                    && hasVerifiedContact()
                     && request.resource.data.kycStatus == 'notStarted'
                     && request.resource.data.approvalStatus == 'pending';
       // Owners edit profile fields only; KYC/approval/ratings are admin- or
