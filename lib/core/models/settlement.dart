@@ -21,6 +21,7 @@ class Settlement {
     required this.net,
     this.status = SettlementStatus.scheduled,
     this.qrWalletPayoutId,
+    this.holdReason,
     this.dueAt,
     this.settledAt,
     this.createdAt,
@@ -43,6 +44,9 @@ class Settlement {
 
   /// QR Wallet payout transaction id, set once paid.
   final String? qrWalletPayoutId;
+
+  /// Why an onHold payout is held, e.g. `sellerSuspended`.
+  final String? holdReason;
   final DateTime? dueAt;
   final DateTime? settledAt;
   final DateTime? createdAt;
@@ -71,6 +75,7 @@ class Settlement {
         net: Money.fromMap(map['net'] as Map<String, dynamic>?),
         status: SettlementStatus.fromName(map['status'] as String?),
         qrWalletPayoutId: map['qrWalletPayoutId'] as String?,
+        holdReason: map['holdReason'] as String?,
         dueAt: readDate(map['dueAt']),
         settledAt: readDate(map['settledAt']),
         createdAt: readDate(map['createdAt']),

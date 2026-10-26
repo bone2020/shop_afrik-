@@ -272,6 +272,7 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
           images: images,
           stock: stock,
           initialStock: stock,
+          market: ref.read(currentSellerProvider).valueOrNull?.market,
         );
         await repo.create(created);
       }

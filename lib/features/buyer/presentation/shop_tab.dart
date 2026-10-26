@@ -9,14 +9,16 @@ import '../../../core/theme/app_colors.dart';
 import '../data/catalog_repository.dart';
 import 'widgets/product_card.dart';
 
-/// Buyer catalog: search, category filter chips, and the product grid.
+/// Buyer catalog: search, category filter chips, market picker, and the
+/// product grid, loaded a page at a time.
 class ShopTab extends ConsumerWidget {
   const ShopTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final categories = ref.watch(categoriesProvider);
-    final products = ref.watch(visibleProductsProvider);
+    final pager = ref.watch(catalogPagerProvider);
+    final items = ref.watch(visibleProductsProvider);
     final selectedCategory = ref.watch(selectedCategoryProvider);
 
     return SafeArea(
@@ -63,29 +65,50 @@ class ShopTab extends ConsumerWidget {
           const _SortFilterBar(),
           const SizedBox(height: 4),
           Expanded(
-            child: products.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, __) => _Message('Could not load products.\n$e'),
-              data: (items) => items.isEmpty
-                  ? const _Message('No products found.')
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 220,
-                        childAspectRatio: 0.72,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
+            child: items.isEmpty
+                ? (pager.loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : pager.error != null
+                        ? const _Message('Could not load products.')
+                        : const _Message('No products found.'))
+                : CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(12),
+                        sliver: SliverGrid.builder(
+                          gridDelegate:
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 220,
+                            childAspectRatio: 0.72,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
+                          itemCount: items.length,
+                          itemBuilder: (_, i) => ProductCard(
+                            product: items[i],
+                            onTap: () =>
+                                context.push(Routes.buyerProduct(items[i].id)),
+                          ),
+                        ),
                       ),
-                      itemCount: items.length,
-                      itemBuilder: (_, i) => ProductCard(
-                        product: items[i],
-                        onTap: () =>
-                            context.push(Routes.buyerProduct(items[i].id)),
-                      ),
-                    ),
-            ),
+                      if (pager.hasMore || pager.loading)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Center(
+                              child: pager.loading
+                                  ? const CircularProgressIndicator()
+                                  : OutlinedButton(
+                                      onPressed: () => ref
+                                          .read(catalogPagerProvider.notifier)
+                                          .loadMore(),
+                                      child: const Text('Load more'),
+                                    ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
           ),
         ],
       ),
@@ -93,7 +116,8 @@ class ShopTab extends ConsumerWidget {
   }
 }
 
-/// Sort order and currency filter controls.
+/// Sort order and market picker. The market decides which products (and so
+/// which currency) the buyer sees.
 class _SortFilterBar extends ConsumerWidget {
   const _SortFilterBar();
 
@@ -107,13 +131,10 @@ class _SortFilterBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sort = ref.watch(productSortProvider);
-    final currency = ref.watch(currencyFilterProvider);
+    final market = ref.watch(effectiveCatalogMarketProvider);
     final settings = ref.watch(platformSettingsProvider).valueOrNull ??
         const PlatformSettings();
-    final currencies = {
-      for (final m in settings.enabledMarkets) m.currency,
-    }.toList()
-      ..sort();
+    final markets = settings.enabledMarkets.toList();
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -133,20 +154,17 @@ class _SortFilterBar extends ConsumerWidget {
                 : ref.read(productSortProvider.notifier).state = v,
           ),
           const Spacer(),
-          const Icon(Icons.payments_outlined,
-              size: 18, color: AppColors.mutedText),
+          const Icon(Icons.public, size: 18, color: AppColors.mutedText),
           const SizedBox(width: 6),
-          DropdownButton<String?>(
-            value: currency,
+          DropdownButton<String>(
+            value: markets.any((m) => m.countryCode == market) ? market : null,
             underline: const SizedBox.shrink(),
-            hint: const Text('All'),
             items: [
-              const DropdownMenuItem(value: null, child: Text('All')),
-              for (final c in currencies)
-                DropdownMenuItem(value: c, child: Text(c)),
+              for (final m in markets)
+                DropdownMenuItem(value: m.countryCode, child: Text(m.label)),
             ],
             onChanged: (v) =>
-                ref.read(currencyFilterProvider.notifier).state = v,
+                ref.read(catalogMarketProvider.notifier).state = v,
           ),
         ],
       ),

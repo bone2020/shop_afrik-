@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/models/enums.dart';
 import '../../../core/models/seller.dart';
 import '../../../core/router/routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -19,6 +20,8 @@ class SellerDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final seller = ref.watch(currentSellerProvider).valueOrNull;
+    // Only an approved seller can list (the rules enforce it too).
+    final canList = seller?.approvalStatus == SellerApprovalStatus.approved;
 
     return DefaultTabController(
       length: 3,
@@ -45,6 +48,8 @@ class SellerDashboardScreen extends ConsumerWidget {
         body: Column(
           children: [
             if (seller != null) _StoreHeader(seller: seller),
+            if (seller?.approvalStatus == SellerApprovalStatus.suspended)
+              _SuspendedBanner(reason: seller!.suspensionReason),
             const Expanded(
               child: TabBarView(
                 children: [
@@ -56,11 +61,13 @@ class SellerDashboardScreen extends ConsumerWidget {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.push(Routes.sellerProductNew),
-          icon: const Icon(Icons.add),
-          label: const Text('Product'),
-        ),
+        floatingActionButton: canList
+            ? FloatingActionButton.extended(
+                onPressed: () => context.push(Routes.sellerProductNew),
+                icon: const Icon(Icons.add),
+                label: const Text('Product'),
+              )
+            : null,
       ),
     );
   }
@@ -100,6 +107,26 @@ class _StoreHeader extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SuspendedBanner extends StatelessWidget {
+  const _SuspendedBanner({this.reason});
+  final String? reason;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      color: AppColors.dangerCoral.withValues(alpha: 0.15),
+      child: Text(
+        'Your store is suspended${reason == null ? '' : ': $reason'}. '
+        'Your products are hidden and payouts are on hold. Contact support '
+        'to resolve this.',
+        style: const TextStyle(fontSize: 13),
       ),
     );
   }

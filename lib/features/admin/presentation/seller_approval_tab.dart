@@ -4,29 +4,67 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/models/seller.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/callable_error.dart';
 import '../data/admin_repository.dart';
 
-/// Seller approval queue. Approving grants the seller role (server-side) and
-/// requires verified QR Wallet KYC; the action runs through the `approveSeller`
-/// Cloud Function.
-class SellerApprovalTab extends ConsumerWidget {
+/// Sellers by status. Pending sellers are approved or rejected (approval
+/// grants the seller role server-side and requires verified QR Wallet KYC);
+/// approved sellers can be suspended with a reason and suspended ones
+/// reinstated (SA-063). Both actions run through Cloud Functions.
+class SellerApprovalTab extends ConsumerStatefulWidget {
   const SellerApprovalTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final pending = ref.watch(pendingSellersProvider);
+  ConsumerState<SellerApprovalTab> createState() => _SellerApprovalTabState();
+}
 
-    return pending.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => _Message('Could not load the approval queue.\n$e'),
-      data: (sellers) => sellers.isEmpty
-          ? const _Message('No sellers awaiting approval.')
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: sellers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => _SellerCard(seller: sellers[i]),
-            ),
+class _SellerApprovalTabState extends ConsumerState<SellerApprovalTab> {
+  SellerApprovalStatus _status = SellerApprovalStatus.pending;
+
+  static const _empty = {
+    SellerApprovalStatus.pending: 'No sellers awaiting approval.',
+    SellerApprovalStatus.approved: 'No approved sellers yet.',
+    SellerApprovalStatus.suspended: 'No suspended sellers.',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final sellers = ref.watch(sellersByStatusProvider(_status));
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: SegmentedButton<SellerApprovalStatus>(
+            segments: const [
+              ButtonSegment(
+                  value: SellerApprovalStatus.pending, label: Text('Pending')),
+              ButtonSegment(
+                  value: SellerApprovalStatus.approved,
+                  label: Text('Approved')),
+              ButtonSegment(
+                  value: SellerApprovalStatus.suspended,
+                  label: Text('Suspended')),
+            ],
+            selected: {_status},
+            onSelectionChanged: (s) => setState(() => _status = s.first),
+          ),
+        ),
+        Expanded(
+          child: sellers.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => _Message('Could not load sellers.\n$e'),
+            data: (list) => list.isEmpty
+                ? _Message(_empty[_status]!)
+                : ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _SellerCard(seller: list[i]),
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -80,7 +118,8 @@ class _SellerCardState extends ConsumerState<_SellerCard> {
                 ),
               ],
             ),
-            if (!kycVerified)
+            if (s.approvalStatus == SellerApprovalStatus.pending &&
+                !kycVerified)
               const Padding(
                 padding: EdgeInsets.only(top: 6),
                 child: Text(
@@ -88,52 +127,165 @@ class _SellerCardState extends ConsumerState<_SellerCard> {
                   style: TextStyle(color: AppColors.mutedText, fontSize: 12),
                 ),
               ),
+            if (s.approvalStatus == SellerApprovalStatus.suspended)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Suspended: ${s.suspensionReason ?? 'no reason recorded'}',
+                  style: const TextStyle(
+                      color: AppColors.dangerCoral, fontSize: 13),
+                ),
+              ),
             const SizedBox(height: 12),
             if (_busy)
               const Center(child: CircularProgressIndicator())
             else
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => _decide(false),
-                      child: const Text('Reject'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: kycVerified ? () => _decide(true) : null,
-                      child: const Text('Approve'),
-                    ),
-                  ),
-                ],
-              ),
+              _actions(s, kycVerified),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _decide(bool approve) async {
+  Widget _actions(Seller s, bool kycVerified) {
+    switch (s.approvalStatus) {
+      case SellerApprovalStatus.pending:
+        return Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _decide(false),
+                child: const Text('Reject'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: kycVerified ? () => _decide(true) : null,
+                child: const Text('Approve'),
+              ),
+            ),
+          ],
+        );
+      case SellerApprovalStatus.approved:
+        return SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.dangerCoral),
+            onPressed: _suspend,
+            child: const Text('Suspend'),
+          ),
+        );
+      case SellerApprovalStatus.suspended:
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => _run(
+              () => ref
+                  .read(adminRepositoryProvider)
+                  .suspendSeller(sellerId: s.id, suspend: false),
+              'Seller reinstated',
+            ),
+            child: const Text('Reinstate'),
+          ),
+        );
+      case SellerApprovalStatus.rejected:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Future<void> _suspend() async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => const _SuspendDialog(),
+    );
+    if (reason == null) return;
+    await _run(
+      () => ref.read(adminRepositoryProvider).suspendSeller(
+          sellerId: widget.seller.id, suspend: true, reason: reason),
+      'Seller suspended',
+    );
+  }
+
+  Future<void> _decide(bool approve) => _run(
+        () => ref
+            .read(adminRepositoryProvider)
+            .approveSeller(sellerId: widget.seller.id, approve: approve),
+        approve ? 'Seller approved' : 'Seller rejected',
+      );
+
+  Future<void> _run(Future<void> Function() action, String done) async {
     setState(() => _busy = true);
     try {
-      await ref
-          .read(adminRepositoryProvider)
-          .approveSeller(sellerId: widget.seller.id, approve: approve);
+      await action();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(approve ? 'Seller approved' : 'Seller rejected')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(done)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Action failed: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Action failed: ${callableErrorMessage(e)}')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+}
+
+/// Asks for the suspension reason, which the seller sees in their
+/// notification.
+class _SuspendDialog extends StatefulWidget {
+  const _SuspendDialog();
+
+  @override
+  State<_SuspendDialog> createState() => _SuspendDialogState();
+}
+
+class _SuspendDialogState extends State<_SuspendDialog> {
+  final _reason = TextEditingController();
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Suspend seller'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Their products are hidden from the catalog and their payouts are '
+            'held until you reinstate them.',
+            style: TextStyle(color: AppColors.mutedText),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _reason,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Reason'),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _reason.text.trim().isEmpty
+              ? null
+              : () => Navigator.of(context).pop(_reason.text.trim()),
+          child: const Text('Suspend'),
+        ),
+      ],
+    );
   }
 }
 
