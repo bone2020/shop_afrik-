@@ -15,44 +15,57 @@ export const releaseExpiredReservations = onSchedule('every 5 minutes', async ()
 });
 
 /** One sweep as of [now]; exported for tests. */
-export async function releaseExpired(now: Timestamp): Promise<number> {
-  const due = await db
-    .collection(Collections.orders)
-    .where('stockReserved', '==', true)
-    .where('reservationExpiresAt', '<=', now)
-    .limit(200)
-    .get();
-
+export async function releaseExpired(now: Timestamp, pageSize = 200): Promise<number> {
   let released = 0;
-  for (const doc of due.docs) {
-    const did = await db.runTransaction(async (tx) => {
-      const fresh = await tx.get(doc.ref);
-      const o = fresh.data();
-      if (
-        !o ||
-        o.stockReserved !== true ||
-        o.status !== 'awaitingPayment' ||
-        o.paymentInDoubt === true
-      ) {
-        return false;
-      }
-      await releaseStock(tx, (o.items ?? []) as OrderItem[]);
-      tx.update(doc.ref, {
-        stockReserved: false,
-        reservationExpiresAt: null,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      return true;
-    });
-    if (did) {
-      released++;
-      await writeAudit({
-        actorId: 'system',
-        action: 'order.reservation.expired',
-        targetType: 'order',
-        targetId: doc.id,
-      });
+  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+  for (;;) {
+    // A cursor, so in-doubt orders that keep their stock never hide the
+    // expired ones behind them.
+    let query = db
+      .collection(Collections.orders)
+      .where('stockReserved', '==', true)
+      .where('reservationExpiresAt', '<=', now)
+      .orderBy('reservationExpiresAt')
+      .limit(pageSize);
+    if (cursor) query = query.startAfter(cursor);
+    const page = await query.get();
+    for (const doc of page.docs) {
+      if (await releaseOne(doc)) released++;
     }
+    if (page.docs.length < pageSize) return released;
+    cursor = page.docs[page.docs.length - 1];
   }
-  return released;
+}
+
+async function releaseOne(
+  doc: FirebaseFirestore.QueryDocumentSnapshot,
+): Promise<boolean> {
+  const did = await db.runTransaction(async (tx) => {
+    const fresh = await tx.get(doc.ref);
+    const o = fresh.data();
+    if (
+      !o ||
+      o.stockReserved !== true ||
+      o.status !== 'awaitingPayment' ||
+      o.paymentInDoubt === true
+    ) {
+      return false;
+    }
+    await releaseStock(tx, (o.items ?? []) as OrderItem[]);
+    tx.update(doc.ref, {
+      stockReserved: false,
+      reservationExpiresAt: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  });
+  if (did) {
+    await writeAudit({
+      actorId: 'system',
+      action: 'order.reservation.expired',
+      targetType: 'order',
+      targetId: doc.id,
+    });
+  }
+  return did;
 }

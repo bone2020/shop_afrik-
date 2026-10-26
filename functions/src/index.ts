@@ -7,10 +7,12 @@
 export { setUserRole } from './auth/setUserRole';
 export { approveSeller } from './sellers/approveSeller';
 export { suspendSeller } from './sellers/suspendSeller';
+export { syncStoreProfile } from './sellers/syncStore';
 
 export { findUser } from './admin/findUser';
 export { updatePlatformSettings } from './admin/updatePlatformSettings';
 export { approveProduct } from './products/approveProduct';
+export { removeProduct } from './products/removeProduct';
 
 export { createOrder } from './orders/createOrder';
 export { quoteDelivery } from './orders/quoteDelivery';
@@ -29,6 +31,9 @@ export { decideRefund } from './refunds/decideRefund';
 
 export { settleDueOrders } from './settlement/settleDueOrders';
 
-export { reconcilePlatformAccount } from './platform/reconcile';
+export {
+  reconcilePlatformAccount,
+  reconcilePlatformAccountDaily,
+} from './platform/reconcile';
 
-export { onReviewCreated } from './reviews/onReviewCreated';
+export { submitReview, deleteReview } from './reviews/submitReview';

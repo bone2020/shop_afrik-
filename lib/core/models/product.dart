@@ -19,6 +19,7 @@ class Product {
     required this.initialStock,
     this.approvalStatus = ProductApprovalStatus.pending,
     this.isActive = true,
+    this.archived = false,
     this.ratingAverage = 0,
     this.ratingCount = 0,
     this.lowStockThreshold,
@@ -40,6 +41,9 @@ class Product {
   final int initialStock;
   final ProductApprovalStatus approvalStatus;
   final bool isActive;
+
+  /// Removed by the seller but kept because it has orders (SA-044).
+  final bool archived;
   final double ratingAverage;
   final int ratingCount;
 
@@ -93,6 +97,7 @@ class Product {
         approvalStatus:
             ProductApprovalStatus.fromName(map['approvalStatus'] as String?),
         isActive: map['isActive'] as bool? ?? true,
+        archived: map['archived'] as bool? ?? false,
         ratingAverage: (map['ratingAverage'] as num?)?.toDouble() ?? 0,
         ratingCount: (map['ratingCount'] as num?)?.toInt() ?? 0,
         lowStockThreshold: (map['lowStockThreshold'] as num?)?.toInt(),

@@ -6,10 +6,9 @@ import '../../../core/models/enums.dart';
 import '../../../core/models/order.dart';
 import '../../../core/models/platform_settings.dart';
 import '../../../core/models/refund_request.dart';
-import '../../../core/models/review.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/callable_error.dart';
 import '../../../core/util/money_format.dart';
-import '../../../services/session_controller.dart';
 import '../../orders/data/orders_repository.dart';
 import '../../orders/presentation/order_status_chip.dart';
 import '../../reviews/data/reviews_repository.dart';
@@ -242,8 +241,8 @@ class _DetailState extends ConsumerState<_Detail> {
           .payOrder(orderId: widget.order.id, method: method);
       _snack('Payment confirmed.');
     } catch (e) {
-      // The seam is inert for now — report the real failure, never fake success.
-      _snack('Payment could not be completed: $e');
+      // Report the real failure, never fake success.
+      _snack('Payment could not be completed: ${callableErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -255,7 +254,7 @@ class _DetailState extends ConsumerState<_Detail> {
       await ref.read(orderServiceProvider).cancelOrder(widget.order.id);
       _snack('Order cancelled.');
     } catch (e) {
-      _snack('Could not cancel: $e');
+      _snack('Could not cancel: ${callableErrorMessage(e)}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -268,23 +267,16 @@ class _DetailState extends ConsumerState<_Detail> {
     );
     if (result == null) return;
 
-    final uid = ref.read(sessionControllerProvider).uid;
-    final name = ref.read(sessionControllerProvider).displayName ?? 'Buyer';
-    if (uid == null) return;
-
     try {
-      await ref.read(reviewsRepositoryProvider).addReview(Review(
-            id: '',
-            productId: item.productId,
-            buyerId: uid,
+      await ref.read(reviewsRepositoryProvider).submitReview(
             orderId: o.id,
+            productId: item.productId,
             rating: result.rating,
-            buyerName: name,
             comment: result.comment,
-          ));
+          );
       _snack('Thanks for your review.');
     } catch (e) {
-      _snack('Could not submit review: $e');
+      _snack('Could not submit review: ${callableErrorMessage(e)}');
     }
   }
 

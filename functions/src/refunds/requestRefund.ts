@@ -1,3 +1,4 @@
+import { logger } from 'firebase-functions/v2';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from '../lib/admin';
@@ -134,7 +135,11 @@ export const requestRefund = onCall(async (req) => {
     try {
       tier = refundTierFor(sum.minorUnits, sum.currency, settings);
     } catch (e) {
-      throw new HttpsError('failed-precondition', (e as Error).message);
+      logger.error('Refund tiers missing', { currency: sum.currency, error: (e as Error).message });
+      throw new HttpsError(
+        'failed-precondition',
+        'Refunds are not available in this currency yet. Please contact support.',
+      );
     }
 
     tx.set(refundRef, {

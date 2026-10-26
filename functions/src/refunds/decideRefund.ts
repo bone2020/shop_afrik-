@@ -1,9 +1,10 @@
+import { logger } from 'firebase-functions/v2';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { FieldValue } from 'firebase-admin/firestore';
 import { db } from '../lib/admin';
 import { requireRole, isSupervisor } from '../lib/guards';
 import { writeAudit } from '../lib/audit';
-import { notify } from '../lib/notify';
+import { alertAdmins, notify } from '../lib/notify';
 import { recordLedgerMove } from '../lib/ledger';
 import { loadSettings } from '../config';
 import * as qrWallet from '../lib/qrWallet';
@@ -50,7 +51,11 @@ export const decideRefund = onCall(async (req) => {
     try {
       tier = refundTierFor(amount.minorUnits, amount.currency, settings);
     } catch (e) {
-      throw new HttpsError('failed-precondition', (e as Error).message);
+      logger.error('Refund tiers missing', { currency: amount.currency, error: (e as Error).message });
+      throw new HttpsError(
+        'failed-precondition',
+        'Refunds are not available in this currency yet. Please contact support.',
+      );
     }
 
     if (decision === 'reject') {
@@ -83,7 +88,16 @@ export const decideRefund = onCall(async (req) => {
       return { action: 'rejected' as const, buyerId: r.buyerId as string };
     }
 
-    // Approve path.
+    // Approve path. An already-approved refund whose payout failed goes
+    // straight to the payout again; the idempotency key prevents a double pay.
+    if (r.status === 'approved') {
+      return {
+        action: 'ready' as const,
+        buyerId: r.buyerId as string,
+        orderId: r.orderId as string,
+        amount,
+      };
+    }
     if (!requiresSecondApproval(tier)) {
       tx.update(refundRef, {
         status: 'approved',
@@ -163,12 +177,31 @@ export const decideRefund = onCall(async (req) => {
   // Step 2: required approvals met — release the escrowed funds back to the
   // buyer and adjust the order. escrow -amount -> buyer wallet.
   const moveId = `refund_release_${refundId}`;
-  const payoutId = await qrWallet.refundFromEscrow({
-    orderId: outcome.orderId,
-    buyerWalletId: outcome.buyerId,
-    amount: outcome.amount,
-    idempotencyKey: moveId,
-  });
+  let payoutId: string;
+  try {
+    payoutId = await qrWallet.refundFromEscrow({
+      orderId: outcome.orderId,
+      buyerWalletId: outcome.buyerId,
+      amount: outcome.amount,
+      idempotencyKey: moveId,
+    });
+  } catch (e) {
+    // The approval stands; approving again retries the payout (SA-136).
+    await writeAudit({
+      actorId: adminId,
+      action: 'refund.payout_failed',
+      targetType: 'refund_request',
+      targetId: refundId,
+      metadata: { error: qrWallet.failureDetail(e) },
+    });
+    await alertAdmins({
+      title: 'Refund payout failed',
+      body: `The refund for order ${outcome.orderId} is approved but the payout failed. Approve it again to retry.`,
+      type: 'money_alert',
+      deepLink: '/admin',
+    });
+    throw e;
+  }
   await recordLedgerMove({
     moveId,
     type: 'refund_release',

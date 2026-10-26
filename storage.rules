@@ -23,10 +23,12 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
-    // Product images: public read, seller-owner write.
+    // Product images: public read; only the seller themselves writes, and
+    // only once they hold the seller role (SA-142).
     match /products/{sellerId}/{allPaths=**} {
       allow read: if true;
       allow write: if isSignedIn()
+                   && role() == 'seller'
                    && request.auth.uid == sellerId
                    && isValidImage();
     }

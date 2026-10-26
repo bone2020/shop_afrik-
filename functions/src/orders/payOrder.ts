@@ -87,7 +87,7 @@ export const payOrder = onCall(async (req) => {
         action: 'order.payment.uncertain',
         targetType: 'order',
         targetId: orderId,
-        metadata: { method, error: (e as Error).message },
+        metadata: { method, error: qrWallet.failureDetail(e) },
       });
     } else {
       // Definitely not charged: give the stock back.

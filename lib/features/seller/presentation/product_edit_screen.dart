@@ -7,6 +7,7 @@ import '../../../core/models/money.dart';
 import '../../../core/models/platform_settings.dart';
 import '../../../core/models/product.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/util/callable_error.dart';
 import '../../../services/session_controller.dart';
 import '../../buyer/data/catalog_repository.dart';
 import '../data/image_upload_service.dart';
@@ -95,9 +96,52 @@ class _ProductEditScreenState extends ConsumerState<ProductEditScreen> {
     return _form(categories, currency);
   }
 
+  Future<void> _remove() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove this product?'),
+        content: const Text(
+            'Buyers will no longer see it. If it has been ordered before, it '
+            'is archived so past orders still show it.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final archived = await ref
+          .read(sellerProductsRepositoryProvider)
+          .remove(widget.productId!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(archived ? 'Product archived.' : 'Product removed.')));
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Could not remove: ${callableErrorMessage(e)}')));
+    }
+  }
+
   Widget _scaffold(Widget body) => Scaffold(
         appBar: AppBar(
-            title: Text(widget.isEditing ? 'Edit product' : 'New product')),
+          title: Text(widget.isEditing ? 'Edit product' : 'New product'),
+          actions: [
+            if (widget.isEditing)
+              IconButton(
+                tooltip: 'Remove product',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _remove,
+              ),
+          ],
+        ),
         body: body,
       );
 

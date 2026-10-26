@@ -173,7 +173,7 @@ async function deliverOrder(
         action: 'order.capture.failed',
         targetType: 'order',
         targetId: orderId,
-        metadata: { error: (e as Error).message },
+        metadata: { error: qrWallet.failureDetail(e) },
       });
       await alertAdmins({
         title: 'Pay-on-delivery capture failed',

@@ -6,7 +6,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { PROJECT_ID } from '../helpers';
 
 let env: RulesTestEnvironment;
@@ -261,5 +261,55 @@ describe('settings', () => {
         commissionRate: 0,
       }),
     );
+  });
+});
+
+describe('seller privacy (SA-141)', () => {
+  beforeEach(() =>
+    env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'sellers/s1'), { ownerName: 'Ama', phone: '+233200000000' });
+      await setDoc(doc(db, 'stores/s1'), { storeName: 'Ama Crafts', listed: true });
+    }),
+  );
+
+  it('only the seller and admins read the seller record', async () => {
+    await assertSucceeds(getDoc(doc(as('s1', { role: 'seller' }), 'sellers/s1')));
+    await assertSucceeds(getDoc(doc(as('admin1', { role: 'admin' }), 'sellers/s1')));
+    await assertFails(getDoc(doc(as('buyer1'), 'sellers/s1')));
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'sellers/s1')));
+  });
+
+  it('anyone reads the store profile and nobody writes it', async () => {
+    await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), 'stores/s1')));
+    await assertFails(setDoc(doc(as('s1', { role: 'seller' }), 'stores/s1'), { storeName: 'x' }));
+  });
+});
+
+describe('reviews (SA-111)', () => {
+  it('clients cannot write reviews directly', async () => {
+    await assertFails(
+      setDoc(doc(as('buyer1'), 'reviews/r1'), { buyerId: 'buyer1', productId: 'p1', rating: 5 }),
+    );
+  });
+});
+
+describe('product removal (SA-044)', () => {
+  beforeEach(() =>
+    env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'sellers/s1'), { market: 'GH', approvalStatus: 'approved' });
+      await setDoc(doc(db, 'products/p1'), {
+        sellerId: 's1', market: 'GH', approvalStatus: 'approved', isActive: true,
+        ratingAverage: 0, ratingCount: 0, hasOrders: true,
+      });
+    }),
+  );
+
+  it('sellers cannot delete products or clear the ordered flag', async () => {
+    const db = as('s1', { role: 'seller' });
+    await assertFails(deleteDoc(doc(db, 'products/p1')));
+    await assertFails(updateDoc(doc(db, 'products/p1'), { hasOrders: false }));
+    await assertSucceeds(updateDoc(doc(db, 'products/p1'), { isActive: false }));
   });
 });

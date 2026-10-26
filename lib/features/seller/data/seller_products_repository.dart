@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
 import '../../../core/models/product.dart';
 
-/// A seller's view of their own products, with create / update / delete.
+/// A seller's view of their own products, with create / update / remove.
 /// Approval status and ratings are not writable here (enforced by the rules);
 /// new products always start pending admin approval.
 abstract interface class SellerProductsRepository {
@@ -12,13 +13,16 @@ abstract interface class SellerProductsRepository {
   Future<void> create(Product product);
   Future<void> update(Product product);
   Future<void> setStock(String productId, int stock);
-  Future<void> delete(String productId);
+  /// Deletes a product, or archives it if it has ever been ordered (SA-044).
+  /// Returns true when it was archived.
+  Future<bool> remove(String productId);
 }
 
 class FirestoreSellerProductsRepository implements SellerProductsRepository {
-  FirestoreSellerProductsRepository(this._db);
+  FirestoreSellerProductsRepository(this._db, this._functions);
 
   final FirebaseFirestore _db;
+  final FirebaseFunctions _functions;
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection(Collections.products);
@@ -28,7 +32,10 @@ class FirestoreSellerProductsRepository implements SellerProductsRepository {
     return _col
         .where('sellerId', isEqualTo: sellerId)
         .snapshots()
-        .map((s) => s.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
+        .map((s) => s.docs
+            .map((d) => Product.fromMap(d.id, d.data()))
+            .where((p) => !p.archived)
+            .toList());
   }
 
   @override
@@ -59,10 +66,16 @@ class FirestoreSellerProductsRepository implements SellerProductsRepository {
   }
 
   @override
-  Future<void> delete(String productId) => _col.doc(productId).delete();
+  Future<bool> remove(String productId) async {
+    final res = await _functions
+        .httpsCallable('removeProduct')
+        .call({'productId': productId});
+    return (res.data as Map?)?['archived'] == true;
+  }
 }
 
 final sellerProductsRepositoryProvider =
     Provider<SellerProductsRepository>((ref) {
-  return FirestoreSellerProductsRepository(FirebaseFirestore.instance);
+  return FirestoreSellerProductsRepository(
+      FirebaseFirestore.instance, FirebaseFunctions.instance);
 });

@@ -7,6 +7,9 @@ abstract final class Collections {
   static const String categories = 'categories';
   static const String orders = 'orders';
   static const String sellers = 'sellers';
+
+  /// Public store profiles, copied from `sellers` by the server (SA-141).
+  static const String stores = 'stores';
   static const String buyers = 'buyers';
   static const String reviews = 'reviews';
   static const String refundRequests = 'refund_requests';

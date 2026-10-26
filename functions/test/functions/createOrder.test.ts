@@ -43,4 +43,9 @@ describe('createOrder email verification (SA-102)', () => {
     const res = await call(asBuyer({ phone_number: '+233200000000' }));
     expect(res.status).toBe('awaitingDeliveryQuote');
   });
+
+  it('marks ordered products so removing them archives instead (SA-044)', async () => {
+    await call(asBuyer({ phone_number: '+233200000000' }));
+    expect((await db.doc('products/p1').get()).data()!.hasOrders).toBe(true);
+  });
 });
