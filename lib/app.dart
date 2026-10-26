@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/app_config.dart';
+import 'core/config/app_env.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'services/session_controller.dart';
@@ -42,10 +43,19 @@ class _ShopAfrikAppState extends ConsumerState<ShopAfrikApp>
     final router = ref.watch(goRouterProvider);
 
     return MaterialApp.router(
-      title: AppConfig.appName,
+      title: AppEnvironment.isStaging
+          ? '${AppConfig.appName} Staging'
+          : AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       routerConfig: router,
+      builder: AppEnvironment.isStaging
+          ? (context, child) => Banner(
+                message: 'STAGING',
+                location: BannerLocation.topEnd,
+                child: child ?? const SizedBox.shrink(),
+              )
+          : null,
     );
   }
 }

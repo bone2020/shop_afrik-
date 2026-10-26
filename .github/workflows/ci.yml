@@ -50,3 +50,30 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm test
+
+  android:
+    name: Android builds (real and staging)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          cache: true
+      - run: cp tool/ci/firebase_options_stub.dart lib/firebase_options.dart
+      - run: flutter pub get
+      # The staging build must install as a separate app from the real one.
+      - name: Build both and check their app ids
+        run: |
+          aapt2="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/aapt2"
+          apk=build/app/outputs/flutter-apk/app-debug.apk
+          flutter build apk --debug
+          test "$($aapt2 dump packagename $apk)" = "com.shopafrik.app"
+          flutter build apk --debug --dart-define=KARTAFRIK_ENV=staging
+          test "$($aapt2 dump packagename $apk)" = "com.shopafrik.app.staging"
