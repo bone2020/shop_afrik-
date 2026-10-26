@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'money.dart';
 
@@ -41,7 +42,7 @@ class PlatformBalance {
       escrow: bucket('escrow'),
       payable: bucket('payable'),
       commission: bucket('commission'),
-      updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? ''),
+      updatedAt: readDate(map['updatedAt']),
     );
   }
 }

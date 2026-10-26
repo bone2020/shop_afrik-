@@ -95,12 +95,15 @@ service cloud.firestore {
 
     // ---- orders ----
     // Created and advanced only by Cloud Functions. Clients read their own;
-    // delivery people read the delivery pool to drop off packages.
+    // a courier reads only orders assigned to them, and only once shipped, so
+    // buyer contact details are not exposed before they are out for delivery.
     match /orders/{orderId} {
       allow read: if isAdmin()
                   || isOwner(resource.data.buyerId)
                   || (isSeller() && request.auth.uid in resource.data.sellerIds)
-                  || role() == 'delivery';
+                  || (role() == 'delivery'
+                      && resource.data.get('courierId', '') == request.auth.uid
+                      && resource.data.status in ['shipped', 'delivered']);
       allow write: if false;
     }
 
@@ -119,7 +122,8 @@ service cloud.firestore {
     match /refund_requests/{refundId} {
       allow read: if isAdmin()
                   || isOwner(resource.data.buyerId)
-                  || isSeller();
+                  || (isSeller()
+                      && request.auth.uid in resource.data.get('sellerIds', []));
       // Buyers open requests; the request must start in `requested`.
       allow create: if isOwner(request.resource.data.buyerId)
                     && request.resource.data.status == 'requested';
@@ -146,6 +150,13 @@ service cloud.firestore {
     // ---- admin_audit ----
     // Append-only and server-written; never mutated or deleted.
     match /admin_audit/{entryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---- staff ----
+    // Directory of admins and couriers, written only by setUserRole.
+    match /staff/{uid} {
       allow read: if isAdmin();
       allow write: if false;
     }

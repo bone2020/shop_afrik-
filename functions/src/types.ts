@@ -13,6 +13,9 @@ export const Collections = {
   notifications: 'notifications',
   adminAudit: 'admin_audit',
   settings: 'settings',
+  // Directory of users holding a staff role (admin, delivery), mirrored from
+  // their custom claims by setUserRole.
+  staff: 'staff',
   // Platform-account mirror: Shop Afrik's own record of the three buckets per
   // currency, reconciled against the QR Wallet platform account.
   platformBalances: 'platform_balances',

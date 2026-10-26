@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shop_afrik/core/models/enums.dart';
 import 'package:shop_afrik/core/models/order.dart';
+import 'package:shop_afrik/core/models/user_role.dart';
 import 'package:shop_afrik/core/theme/app_theme.dart';
 import 'package:shop_afrik/features/delivery/data/delivery_repository.dart';
 import 'package:shop_afrik/features/delivery/presentation/delivery_home_screen.dart';
@@ -14,7 +15,8 @@ class _FakeDelivery implements DeliveryRepository {
   _FakeDelivery(this.orders);
   final List<ShopOrder> orders;
   @override
-  Stream<List<ShopOrder>> watchAssignedDeliveries() => Stream.value(orders);
+  Stream<List<ShopOrder>> watchAssignedDeliveries(String courierId) =>
+      Stream.value(orders);
   @override
   Future<void> submitProof({
     required String orderId,
@@ -26,8 +28,7 @@ class _FakeDelivery implements DeliveryRepository {
 }
 
 void main() {
-  testWidgets('delivery home lists shipped orders to drop off',
-      (tester) async {
+  testWidgets('delivery home lists shipped orders to drop off', (tester) async {
     final base = testOrder(
       id: 'orderX',
       settlement: SettlementStatus.notDue,
@@ -53,7 +54,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          stubSession(),
+          stubSession(authedSession(UserRole.delivery)),
           deliveryRepositoryProvider
               .overrideWithValue(_FakeDelivery([shipped])),
         ],
@@ -70,10 +71,11 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          stubSession(),
+          stubSession(authedSession(UserRole.delivery)),
           deliveryRepositoryProvider.overrideWithValue(_FakeDelivery(const [])),
         ],
-        child: MaterialApp(theme: AppTheme.dark, home: const DeliveryHomeScreen()),
+        child:
+            MaterialApp(theme: AppTheme.dark, home: const DeliveryHomeScreen()),
       ),
     );
     await tester.pumpAndSettle();

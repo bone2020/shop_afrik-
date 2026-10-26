@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'enums.dart';
 
@@ -52,6 +53,6 @@ class AppNotification {
         type: map['type'] as String?,
         deepLink: map['deepLink'] as String?,
         isRead: map['isRead'] as bool? ?? false,
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        createdAt: readDate(map['createdAt']),
       );
 }

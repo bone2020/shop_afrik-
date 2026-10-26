@@ -14,6 +14,9 @@ abstract final class Collections {
   static const String notifications = 'notifications';
   static const String adminAudit = 'admin_audit';
 
+  /// Admins and couriers, mirrored from custom claims by `setUserRole`.
+  static const String staff = 'staff';
+
   /// Singleton document holding admin-configurable platform settings
   /// (commission rate, refund tiers, etc.). Path: settings/platform.
   static const String settings = 'settings';

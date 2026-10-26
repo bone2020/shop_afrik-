@@ -7,6 +7,7 @@ import 'package:shop_afrik/core/models/order.dart';
 import 'package:shop_afrik/core/models/product.dart';
 import 'package:shop_afrik/core/models/refund_request.dart';
 import 'package:shop_afrik/core/models/seller.dart';
+import 'package:shop_afrik/core/models/staff_member.dart';
 import 'package:shop_afrik/core/theme/app_theme.dart';
 import 'package:shop_afrik/features/admin/data/admin_repository.dart';
 import 'package:shop_afrik/features/admin/presentation/product_approval_tab.dart';
@@ -32,7 +33,9 @@ class _FakeAdmin implements AdminRepository {
   @override
   Stream<List<ShopOrder>> watchOrdersAwaitingQuote() => const Stream.empty();
   @override
-  Stream<List<ShopOrder>> watchShippedOrders() => const Stream.empty();
+  Stream<List<ShopOrder>> watchOrdersToDispatch() => const Stream.empty();
+  @override
+  Stream<List<StaffMember>> watchCouriers() => const Stream.empty();
   @override
   Stream<List<Product>> watchPendingProducts() => Stream.value(products);
   @override
@@ -41,7 +44,8 @@ class _FakeAdmin implements AdminRepository {
     required bool approve,
   }) async {}
   @override
-  Future<void> approveSeller({required String sellerId, required bool approve}) async {}
+  Future<void> approveSeller(
+      {required String sellerId, required bool approve}) async {}
   @override
   Future<void> decideRefund({
     required String refundId,
@@ -56,6 +60,11 @@ class _FakeAdmin implements AdminRepository {
   }) async {}
   @override
   Future<void> markDelivered(String orderId) async {}
+  @override
+  Future<void> assignCourier({
+    required String orderId,
+    required String courierId,
+  }) async {}
 }
 
 Widget _wrap(Widget child, AdminRepository repo) => ProviderScope(
@@ -88,8 +97,8 @@ void main() {
     expect(find.text('Verified Store'), findsOneWidget);
     expect(find.text('Unverified Store'), findsOneWidget);
 
-    final approveButtons =
-        tester.widgetList<ElevatedButton>(find.widgetWithText(ElevatedButton, 'Approve'));
+    final approveButtons = tester.widgetList<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Approve'));
     expect(approveButtons.length, 2);
     // Verified seller's Approve is enabled; unverified is disabled.
     expect(approveButtons.where((b) => b.onPressed != null).length, 1);
@@ -109,7 +118,8 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, 'Reject'), findsOneWidget);
   });
 
-  testWidgets('refund queue shows tier and per-currency amount', (tester) async {
+  testWidgets('refund queue shows tier and per-currency amount',
+      (tester) async {
     final repo = _FakeAdmin(refunds: [
       const RefundRequest(
         id: 'r1',
@@ -130,6 +140,7 @@ void main() {
     expect(find.text('NGN 10,000.00'), findsOneWidget);
     expect(find.text('Tier 2'), findsOneWidget);
     expect(find.textContaining('second, senior approver'), findsWidgets);
-    expect(find.widgetWithText(ElevatedButton, 'Approve (2nd)'), findsOneWidget);
+    expect(
+        find.widgetWithText(ElevatedButton, 'Approve (2nd)'), findsOneWidget);
   });
 }

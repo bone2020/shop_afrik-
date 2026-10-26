@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'enums.dart';
 import 'money.dart';
@@ -51,7 +52,9 @@ class Product {
 
   /// Visible to buyers only when approved, active, and in stock.
   bool get isPurchasable =>
-      approvalStatus == ProductApprovalStatus.approved && isActive && !isOutOfStock;
+      approvalStatus == ProductApprovalStatus.approved &&
+      isActive &&
+      !isOutOfStock;
 
   Map<String, dynamic> toMap() => {
         'sellerId': sellerId,
@@ -87,7 +90,7 @@ class Product {
         ratingAverage: (map['ratingAverage'] as num?)?.toDouble() ?? 0,
         ratingCount: (map['ratingCount'] as num?)?.toInt() ?? 0,
         lowStockThreshold: (map['lowStockThreshold'] as num?)?.toInt(),
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
-        updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? ''),
+        createdAt: readDate(map['createdAt']),
+        updatedAt: readDate(map['updatedAt']),
       );
 }

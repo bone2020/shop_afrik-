@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 /// A verified-buyer product review (plan §7 `reviews`).
 ///
@@ -51,6 +52,6 @@ class Review {
         buyerName: map['buyerName'] as String? ?? '',
         comment: map['comment'] as String?,
         verifiedPurchase: map['verifiedPurchase'] as bool? ?? true,
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        createdAt: readDate(map['createdAt']),
       );
 }

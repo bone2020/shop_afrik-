@@ -173,8 +173,8 @@ async function deliverOrder(
 
 /**
  * Delivery person submits proof of delivery (photo + GPS + timestamp) for a
- * scanned package. The barcode must match the order id, the order must be
- * shipped, and submitting marks the order delivered.
+ * scanned package. Only the assigned courier may submit; the barcode must match
+ * the order id, the order must be shipped, and submitting marks it delivered.
  */
 export const submitProofOfDelivery = onCall(async (req) => {
   const deliveryPersonId = requireRole(req, 'delivery');
@@ -182,6 +182,15 @@ export const submitProofOfDelivery = onCall(async (req) => {
   const barcode = req.data?.barcode as string | undefined;
   if (!orderId || !barcode) {
     throw new HttpsError('invalid-argument', 'orderId and barcode required.');
+  }
+  // Only the courier assigned to this order may confirm it (SA-120).
+  const snap = await db.collection(Collections.orders).doc(orderId).get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Order not found.');
+  if (snap.data()!.courierId !== deliveryPersonId) {
+    throw new HttpsError(
+      'permission-denied',
+      'This delivery is not assigned to you.',
+    );
   }
   // The package barcode encodes the order id.
   if (barcode !== orderId) {

@@ -100,7 +100,8 @@ firebase emulators:start
 ## Backend conventions
 
 - **Roles are custom auth claims** (`role`, `adminTier`). They are granted only
-  by `setUserRole` and `approveSeller`. The Firestore and Storage rules read
+  by `setUserRole` (supervisors only, never on yourself; mirrored to `staff/`)
+  and `approveSeller`. Grants merge with other claims. The Firestore and Storage rules read
   these claims — never trust client-set role fields.
 - **Money flows through Cloud Functions only.** Orders, settlements, refund
   decisions, and audit entries are server-written; the rules make those paths
@@ -127,8 +128,9 @@ settled (day 8). Allowed transitions live in `OrderStatus` (Dart) and
 payment/capture/settlement.
 
 There are four roles plus delivery: buyer, seller, admin, and a **delivery
-person** who sees shipped orders and confirms drop-off with proof
-(`submitProofOfDelivery`).
+person** (courier). An admin assigns each paid order to one courier
+(`assignCourier`); only that courier can read it once shipped and confirm
+drop-off with proof (`submitProofOfDelivery`).
 
 ## Key business rules (plan §6)
 

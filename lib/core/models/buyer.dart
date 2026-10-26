@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 /// A shipping/contact address (plan §7 `buyers` -> addresses).
 @immutable
@@ -109,6 +110,6 @@ class Buyer {
             const [],
         wishlist: (map['wishlist'] as List?)?.cast<String>() ?? const [],
         pushEnabled: map['pushEnabled'] as bool? ?? true,
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        createdAt: readDate(map['createdAt']),
       );
 }
