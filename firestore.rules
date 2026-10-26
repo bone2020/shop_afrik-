@@ -34,6 +34,10 @@ service cloud.firestore {
       return !('email' in request.auth.token)
              || request.auth.token.email_verified == true;
     }
+    // The calling seller's own store profile.
+    function sellerProfile() {
+      return get(/databases/$(database)/documents/sellers/$(request.auth.uid)).data;
+    }
     function onlyChanged(fields) {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(fields);
@@ -58,6 +62,8 @@ service cloud.firestore {
       // pending and not pre-rating themselves.
       allow create: if isSeller()
                     && isOwner(request.resource.data.sellerId)
+                    && request.resource.data.market == sellerProfile().market
+                    && sellerProfile().approvalStatus == 'approved'
                     && request.resource.data.approvalStatus == 'pending'
                     && request.resource.data.ratingAverage == 0
                     && request.resource.data.ratingCount == 0;
@@ -68,6 +74,8 @@ service cloud.firestore {
                     || (isSeller()
                         && isOwner(resource.data.sellerId)
                         && request.resource.data.sellerId == resource.data.sellerId
+                        && request.resource.data.get('market', '') == resource.data.get('market', '')
+                        && sellerProfile().approvalStatus == 'approved'
                         && request.resource.data.approvalStatus == resource.data.approvalStatus
                         && request.resource.data.ratingAverage == resource.data.ratingAverage
                         && request.resource.data.ratingCount == resource.data.ratingCount);

@@ -22,6 +22,7 @@ class Product {
     this.ratingAverage = 0,
     this.ratingCount = 0,
     this.lowStockThreshold,
+    this.market,
     this.createdAt,
     this.updatedAt,
   });
@@ -45,6 +46,10 @@ class Product {
   /// Seller-defined minimum quantity; falls back to a ratio of [initialStock]
   /// (plan §10) when null.
   final int? lowStockThreshold;
+
+  /// ISO country code of the market the product is sold in — the seller's
+  /// market (SA-103). Buyers browse one market at a time.
+  final String? market;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -70,6 +75,7 @@ class Product {
         'ratingAverage': ratingAverage,
         'ratingCount': ratingCount,
         'lowStockThreshold': lowStockThreshold,
+        'market': market,
         'createdAt': createdAt?.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
       };
@@ -90,6 +96,7 @@ class Product {
         ratingAverage: (map['ratingAverage'] as num?)?.toDouble() ?? 0,
         ratingCount: (map['ratingCount'] as num?)?.toInt() ?? 0,
         lowStockThreshold: (map['lowStockThreshold'] as num?)?.toInt(),
+        market: map['market'] as String?,
         createdAt: readDate(map['createdAt']),
         updatedAt: readDate(map['updatedAt']),
       );

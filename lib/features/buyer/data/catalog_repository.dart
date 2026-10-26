@@ -2,14 +2,33 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
+import '../../../core/data/platform_settings_repository.dart';
 import '../../../core/models/category.dart';
+import '../../../core/models/platform_settings.dart';
 import '../../../core/models/product.dart';
+import 'buyer_repository.dart';
+
+/// One page of catalog results. [cursor] is opaque: pass it back to fetch the
+/// next page.
+class ProductPage {
+  const ProductPage({required this.items, this.cursor, required this.hasMore});
+  final List<Product> items;
+  final Object? cursor;
+  final bool hasMore;
+}
 
 /// Read access to the public catalog for buyers (approved, active products and
 /// the category tree).
 abstract interface class CatalogRepository {
   Stream<List<Category>> watchCategories();
-  Stream<List<Product>> watchProducts({String? categoryId});
+
+  /// Newest-first page of approved, active products in [market] (SA-103).
+  Future<ProductPage> fetchProducts({
+    required String market,
+    String? categoryId,
+    Object? cursor,
+    int limit = catalogPageSize,
+  });
   Stream<Product?> watchProduct(String id);
   Stream<List<Product>> watchSellerProducts(String sellerId);
 }
@@ -30,16 +49,28 @@ class FirestoreCatalogRepository implements CatalogRepository {
   }
 
   @override
-  Stream<List<Product>> watchProducts({String? categoryId}) {
+  Future<ProductPage> fetchProducts({
+    required String market,
+    String? categoryId,
+    Object? cursor,
+    int limit = catalogPageSize,
+  }) async {
     Query<Map<String, dynamic>> q = _db
         .collection(Collections.products)
         .where('approvalStatus', isEqualTo: 'approved')
-        .where('isActive', isEqualTo: true);
+        .where('isActive', isEqualTo: true)
+        .where('market', isEqualTo: market);
     if (categoryId != null) {
       q = q.where('categoryId', isEqualTo: categoryId);
     }
-    return q.snapshots().map(
-        (s) => s.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
+    q = q.orderBy('createdAt', descending: true).limit(limit);
+    if (cursor is DocumentSnapshot) q = q.startAfterDocument(cursor);
+    final snap = await q.get();
+    return ProductPage(
+      items: snap.docs.map((d) => Product.fromMap(d.id, d.data())).toList(),
+      cursor: snap.docs.isEmpty ? cursor : snap.docs.last,
+      hasMore: snap.docs.length == limit,
+    );
   }
 
   @override
@@ -80,8 +111,25 @@ enum ProductSort { newest, priceLowToHigh, priceHighToLow, topRated }
 /// The buyer's current category filter (null = all categories).
 final selectedCategoryProvider = StateProvider.autoDispose<String?>((_) => null);
 
-/// Optional currency filter (null = all currencies).
-final currencyFilterProvider = StateProvider.autoDispose<String?>((_) => null);
+/// Products per catalog page.
+const catalogPageSize = 20;
+
+/// The market the buyer is browsing (null = their default). Market decides
+/// currency, so there is no separate currency filter.
+final catalogMarketProvider = StateProvider<String?>((_) => null);
+
+/// The market actually browsed: the buyer's choice, else the market of their
+/// default address, else the first enabled market.
+final effectiveCatalogMarketProvider = Provider.autoDispose<String?>((ref) {
+  final chosen = ref.watch(catalogMarketProvider);
+  if (chosen != null) return chosen;
+  final settings = ref.watch(platformSettingsProvider).valueOrNull ??
+      const PlatformSettings();
+  final enabled = settings.enabledMarkets.map((m) => m.countryCode).toList();
+  final home = ref.watch(currentBuyerProvider).valueOrNull?.defaultAddress?.market;
+  if (home != null && enabled.contains(home)) return home;
+  return enabled.isEmpty ? null : enabled.first;
+});
 
 /// The buyer's current free-text search query.
 final searchQueryProvider = StateProvider.autoDispose<String>((_) => '');
@@ -90,36 +138,98 @@ final searchQueryProvider = StateProvider.autoDispose<String>((_) => '');
 final productSortProvider =
     StateProvider.autoDispose<ProductSort>((_) => ProductSort.newest);
 
-/// Products for the selected category, filtered client-side by the search query
-/// and optional currency, then sorted (Firestore has no full-text search; this
-/// keeps it simple for the MVP).
-final visibleProductsProvider =
-    StreamProvider.autoDispose<List<Product>>((ref) {
-  final categoryId = ref.watch(selectedCategoryProvider);
-  final currency = ref.watch(currencyFilterProvider);
+/// Loaded catalog pages for the current market and category.
+class CatalogState {
+  const CatalogState({
+    this.items = const [],
+    this.cursor,
+    this.hasMore = true,
+    this.loading = false,
+    this.error,
+  });
+  final List<Product> items;
+  final Object? cursor;
+  final bool hasMore;
+  final bool loading;
+  final Object? error;
+}
+
+/// Pages through the catalog 20 products at a time (SA-103). Changing the
+/// market or category starts again from the first page.
+class CatalogPager extends AutoDisposeNotifier<CatalogState> {
+  // Bumped on every rebuild (market or category change) so a page that
+  // arrives for an old query is dropped instead of appended.
+  int _generation = 0;
+  bool _inFlight = false;
+
+  @override
+  CatalogState build() {
+    ref.watch(effectiveCatalogMarketProvider);
+    ref.watch(selectedCategoryProvider);
+    _generation++;
+    _inFlight = false;
+    Future.microtask(loadMore);
+    return const CatalogState(loading: true);
+  }
+
+  Future<void> loadMore() async {
+    if (_inFlight) return;
+    final market = ref.read(effectiveCatalogMarketProvider);
+    if (market == null) {
+      state = const CatalogState(hasMore: false);
+      return;
+    }
+    final current = state;
+    if (!current.hasMore) return;
+    final generation = _generation;
+    _inFlight = true;
+    state = CatalogState(
+        items: current.items, cursor: current.cursor, loading: true);
+    try {
+      final page = await ref.read(catalogRepositoryProvider).fetchProducts(
+            market: market,
+            categoryId: ref.read(selectedCategoryProvider),
+            cursor: current.cursor,
+          );
+      if (generation != _generation) return;
+      state = CatalogState(
+        items: [...current.items, ...page.items],
+        cursor: page.cursor,
+        hasMore: page.hasMore,
+      );
+    } catch (e) {
+      if (generation != _generation) return;
+      state = CatalogState(
+          items: current.items, cursor: current.cursor, error: e);
+    } finally {
+      if (generation == _generation) _inFlight = false;
+    }
+  }
+}
+
+final catalogPagerProvider =
+    AutoDisposeNotifierProvider<CatalogPager, CatalogState>(CatalogPager.new);
+
+/// Loaded products filtered client-side by the search query, then sorted.
+/// Firestore has no full-text search, so search covers the pages loaded so
+/// far; server-side search is SA-104.
+final visibleProductsProvider = Provider.autoDispose<List<Product>>((ref) {
+  final products = ref.watch(catalogPagerProvider).items;
   final query = ref.watch(searchQueryProvider).trim().toLowerCase();
   final sort = ref.watch(productSortProvider);
 
-  return ref
-      .watch(catalogRepositoryProvider)
-      .watchProducts(categoryId: categoryId)
-      .map((products) {
-    var list = products;
-    if (query.isNotEmpty) {
-      list = list
-          .where((p) =>
-              p.title.toLowerCase().contains(query) ||
-              p.description.toLowerCase().contains(query))
-          .toList();
-    }
-    if (currency != null) {
-      list = list.where((p) => p.price.currency == currency).toList();
-    } else {
-      list = [...list];
-    }
-    sortProducts(list, sort);
-    return list;
-  });
+  var list = products;
+  if (query.isNotEmpty) {
+    list = list
+        .where((p) =>
+            p.title.toLowerCase().contains(query) ||
+            p.description.toLowerCase().contains(query))
+        .toList();
+  } else {
+    list = [...list];
+  }
+  sortProducts(list, sort);
+  return list;
 });
 
 /// Sorts [products] in place. Price comparisons are confined within a currency:

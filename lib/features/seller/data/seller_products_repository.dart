@@ -39,8 +39,13 @@ class FirestoreSellerProductsRepository implements SellerProductsRepository {
 
   @override
   Future<void> update(Product product) async {
+    // Never overwrite the creation time (the catalog is ordered by it) or the
+    // market (fixed at creation; the rules reject changes).
+    final data = product.toMap()
+      ..remove('createdAt')
+      ..remove('market');
     await _col.doc(product.id).update({
-      ...product.toMap(),
+      ...data,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }

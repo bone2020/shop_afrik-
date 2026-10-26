@@ -185,3 +185,57 @@ describe('admin_audit', () => {
     );
   });
 });
+
+describe('products', () => {
+  const seller = () => as('s1', { role: 'seller' });
+  const product = (over: Record<string, unknown> = {}) => ({
+    sellerId: 's1',
+    title: 'Shea butter',
+    market: 'GH',
+    approvalStatus: 'pending',
+    isActive: true,
+    ratingAverage: 0,
+    ratingCount: 0,
+    ...over,
+  });
+  const seedSeller = (approvalStatus: string) =>
+    env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'sellers/s1'), {
+        userId: 's1',
+        market: 'GH',
+        approvalStatus,
+      }),
+    );
+
+  it('an approved seller lists only in their own market', async () => {
+    await seedSeller('approved');
+    await assertSucceeds(setDoc(doc(seller(), 'products/p1'), product()));
+    await assertFails(
+      setDoc(doc(seller(), 'products/p2'), product({ market: 'NG' })),
+    );
+  });
+
+  it('pending and suspended sellers cannot list', async () => {
+    for (const status of ['pending', 'suspended']) {
+      await seedSeller(status);
+      await assertFails(setDoc(doc(seller(), 'products/p1'), product()));
+    }
+  });
+
+  it('a seller cannot move a product to another market', async () => {
+    await seedSeller('approved');
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'products/p1'), product()),
+    );
+    await assertSucceeds(updateDoc(doc(seller(), 'products/p1'), { title: 'New' }));
+    await assertFails(updateDoc(doc(seller(), 'products/p1'), { market: 'NG' }));
+  });
+
+  it('a suspended seller cannot edit their products', async () => {
+    await seedSeller('suspended');
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'products/p1'), product()),
+    );
+    await assertFails(updateDoc(doc(seller(), 'products/p1'), { title: 'New' }));
+  });
+});
