@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -10,7 +12,7 @@ plugins {
 // dart-defines to Gradle base64-encoded and comma-separated.
 val isStaging = (project.findProperty("dart-defines") as String?)
     ?.split(",")
-    ?.map { String(java.util.Base64.getDecoder().decode(it)) }
+    ?.map { String(Base64.getDecoder().decode(it)) }
     ?.contains("KARTAFRIK_ENV=staging") == true
 
 android {
