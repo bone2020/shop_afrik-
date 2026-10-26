@@ -44,7 +44,8 @@ enum SellerApprovalStatus {
   suspended,
   rejected;
 
-  static SellerApprovalStatus fromName(String? n) => _byName(values, n, pending);
+  static SellerApprovalStatus fromName(String? n) =>
+      _byName(values, n, pending);
 }
 
 // --- Orders ---
@@ -167,7 +168,8 @@ enum DeliveryStatus {
   delivered,
   deliveryConfirmed;
 
-  static DeliveryStatus fromName(String? n) => _byName(values, n, notDispatched);
+  static DeliveryStatus fromName(String? n) =>
+      _byName(values, n, notDispatched);
 }
 
 /// Settlement leg — proceeds held in the Shop Afrik business wallet until the
@@ -228,7 +230,8 @@ enum RefundTier {
 enum NotificationAudience {
   buyer,
   seller,
-  admin;
+  admin,
+  delivery;
 
   static NotificationAudience fromName(String? n) => _byName(values, n, buyer);
 }

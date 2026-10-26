@@ -29,14 +29,23 @@ export const approveSeller = onCall(async (req) => {
     );
   }
 
+  if (approve) {
+    // Preserve other claims (SA-062). Roles are single-valued, so refuse
+    // rather than silently strip a staff role from an admin or courier.
+    const existing = (await auth.getUser(sellerId)).customClaims ?? {};
+    if (existing.role && existing.role !== 'seller') {
+      throw new HttpsError(
+        'failed-precondition',
+        `This account already has the ${existing.role} role.`,
+      );
+    }
+    await auth.setCustomUserClaims(sellerId, { ...existing, role: 'seller' });
+  }
+
   await ref.update({
     approvalStatus: approve ? 'approved' : 'rejected',
     updatedAt: FieldValue.serverTimestamp(),
   });
-
-  if (approve) {
-    await auth.setCustomUserClaims(sellerId, { role: 'seller' });
-  }
 
   await writeAudit({
     actorId: adminId,

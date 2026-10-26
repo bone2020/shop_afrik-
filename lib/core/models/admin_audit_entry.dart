@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 /// An append-only audit record for admin and financial actions (plan §7
 /// `admin_audit`). These are written server-side only and are never updated
@@ -44,7 +45,8 @@ class AdminAuditEntry {
         action: map['action'] as String? ?? '',
         targetType: map['targetType'] as String?,
         targetId: map['targetId'] as String?,
-        metadata: (map['metadata'] as Map?)?.cast<String, dynamic>() ?? const {},
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        metadata:
+            (map['metadata'] as Map?)?.cast<String, dynamic>() ?? const {},
+        createdAt: readDate(map['createdAt']),
       );
 }

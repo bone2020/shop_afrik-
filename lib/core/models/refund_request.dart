@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'enums.dart';
 import 'money.dart';
@@ -107,11 +108,12 @@ class RefundRequest {
         reason: map['reason'] as String? ?? '',
         tier: RefundTier.fromName(map['tier'] as String?),
         status: RefundStatus.fromName(map['status'] as String?),
-        evidenceUrls: (map['evidenceUrls'] as List?)?.cast<String>() ?? const [],
+        evidenceUrls:
+            (map['evidenceUrls'] as List?)?.cast<String>() ?? const [],
         firstApproverId: map['firstApproverId'] as String?,
         secondApproverId: map['secondApproverId'] as String?,
         decisionNote: map['decisionNote'] as String?,
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
-        resolvedAt: DateTime.tryParse(map['resolvedAt'] as String? ?? ''),
+        createdAt: readDate(map['createdAt']),
+        resolvedAt: readDate(map['resolvedAt']),
       );
 }

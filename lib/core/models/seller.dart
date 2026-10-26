@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'enums.dart';
 
@@ -74,6 +75,6 @@ class Seller {
         productCount: (map['productCount'] as num?)?.toInt() ?? 0,
         logoUrl: map['logoUrl'] as String?,
         phone: map['phone'] as String?,
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        createdAt: readDate(map['createdAt']),
       );
 }

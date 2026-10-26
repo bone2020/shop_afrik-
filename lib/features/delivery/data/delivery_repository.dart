@@ -4,12 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/firestore_collections.dart';
 import '../../../core/models/order.dart';
+import '../../../services/session_controller.dart';
 
-/// Delivery-person data: the deliveries to drop off (orders that have shipped)
-/// and proof-of-delivery submission. Submitting proof marks the order delivered
+/// Delivery-person data: the shipped orders assigned to this courier and
+/// proof-of-delivery submission. Submitting proof marks the order delivered
 /// via a Cloud Function (orders are server-write-only).
 abstract interface class DeliveryRepository {
-  Stream<List<ShopOrder>> watchAssignedDeliveries();
+  Stream<List<ShopOrder>> watchAssignedDeliveries(String courierId);
   Future<void> submitProof({
     required String orderId,
     required String barcode,
@@ -26,12 +27,16 @@ class FirebaseDeliveryRepository implements DeliveryRepository {
   final FirebaseFunctions _functions;
 
   @override
-  Stream<List<ShopOrder>> watchAssignedDeliveries() {
+  Stream<List<ShopOrder>> watchAssignedDeliveries(String courierId) {
+    // The rules only let a courier read their own shipped orders, so the query
+    // must carry both filters.
     return _db
         .collection(Collections.orders)
+        .where('courierId', isEqualTo: courierId)
         .where('status', isEqualTo: 'shipped')
         .snapshots()
-        .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+        .map((s) =>
+            s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
   }
 
   @override
@@ -59,5 +64,7 @@ final deliveryRepositoryProvider = Provider<DeliveryRepository>((ref) {
 
 final assignedDeliveriesProvider =
     StreamProvider.autoDispose<List<ShopOrder>>((ref) {
-  return ref.watch(deliveryRepositoryProvider).watchAssignedDeliveries();
+  final uid = ref.watch(sessionControllerProvider).uid;
+  if (uid == null) return const Stream.empty();
+  return ref.watch(deliveryRepositoryProvider).watchAssignedDeliveries(uid);
 });

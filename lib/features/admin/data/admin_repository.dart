@@ -7,6 +7,7 @@ import '../../../core/models/order.dart';
 import '../../../core/models/product.dart';
 import '../../../core/models/refund_request.dart';
 import '../../../core/models/seller.dart';
+import '../../../core/models/staff_member.dart';
 
 /// Admin read access to the approval queues plus the privileged action
 /// callables. Seller approval and refund decisions are server-authoritative
@@ -15,9 +16,11 @@ abstract interface class AdminRepository {
   Stream<List<Seller>> watchPendingSellers();
   Stream<List<RefundRequest>> watchOpenRefunds();
   Stream<List<ShopOrder>> watchOrdersAwaitingQuote();
-  Stream<List<ShopOrder>> watchShippedOrders();
+  Stream<List<ShopOrder>> watchOrdersToDispatch();
+  Stream<List<StaffMember>> watchCouriers();
   Stream<List<Product>> watchPendingProducts();
-  Future<void> approveProduct({required String productId, required bool approve});
+  Future<void> approveProduct(
+      {required String productId, required bool approve});
   Future<void> approveSeller({required String sellerId, required bool approve});
   Future<void> decideRefund({
     required String refundId,
@@ -30,6 +33,8 @@ abstract interface class AdminRepository {
     String? note,
   });
   Future<void> markDelivered(String orderId);
+  Future<void> assignCourier(
+      {required String orderId, required String courierId});
 }
 
 class FirebaseAdminRepository implements AdminRepository {
@@ -63,16 +68,38 @@ class FirebaseAdminRepository implements AdminRepository {
         .collection(Collections.orders)
         .where('status', isEqualTo: 'awaitingDeliveryQuote')
         .snapshots()
-        .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+        .map((s) =>
+            s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
   }
 
   @override
-  Stream<List<ShopOrder>> watchShippedOrders() {
+  Stream<List<ShopOrder>> watchOrdersToDispatch() {
     return _db
         .collection(Collections.orders)
-        .where('status', isEqualTo: 'shipped')
+        .where('status', whereIn: ['confirmed', 'shipped'])
         .snapshots()
-        .map((s) => s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+        .map((s) =>
+            s.docs.map((d) => ShopOrder.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Stream<List<StaffMember>> watchCouriers() {
+    return _db
+        .collection(Collections.staff)
+        .where('role', isEqualTo: 'delivery')
+        .snapshots()
+        .map((s) =>
+            s.docs.map((d) => StaffMember.fromMap(d.id, d.data())).toList());
+  }
+
+  @override
+  Future<void> assignCourier({
+    required String orderId,
+    required String courierId,
+  }) async {
+    await _functions
+        .httpsCallable('assignCourier')
+        .call({'orderId': orderId, 'courierId': courierId});
   }
 
   @override
@@ -81,7 +108,8 @@ class FirebaseAdminRepository implements AdminRepository {
         .collection(Collections.products)
         .where('approvalStatus', isEqualTo: 'pending')
         .snapshots()
-        .map((s) => s.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
+        .map(
+            (s) => s.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
   }
 
   @override
@@ -141,8 +169,7 @@ final adminRepositoryProvider = Provider<AdminRepository>((ref) {
       FirebaseFirestore.instance, FirebaseFunctions.instance);
 });
 
-final pendingSellersProvider =
-    StreamProvider.autoDispose<List<Seller>>((ref) {
+final pendingSellersProvider = StreamProvider.autoDispose<List<Seller>>((ref) {
   return ref.watch(adminRepositoryProvider).watchPendingSellers();
 });
 
@@ -156,9 +183,15 @@ final ordersAwaitingQuoteProvider =
   return ref.watch(adminRepositoryProvider).watchOrdersAwaitingQuote();
 });
 
-final shippedOrdersProvider =
+/// Paid orders still to be delivered: confirmed (assign a courier) or
+/// shipped (in transit).
+final ordersToDispatchProvider =
     StreamProvider.autoDispose<List<ShopOrder>>((ref) {
-  return ref.watch(adminRepositoryProvider).watchShippedOrders();
+  return ref.watch(adminRepositoryProvider).watchOrdersToDispatch();
+});
+
+final couriersProvider = StreamProvider.autoDispose<List<StaffMember>>((ref) {
+  return ref.watch(adminRepositoryProvider).watchCouriers();
 });
 
 final pendingProductsProvider =

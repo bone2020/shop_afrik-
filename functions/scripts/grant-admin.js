@@ -31,6 +31,15 @@ async function main() {
     role: 'admin',
     adminTier: 'supervisor',
   });
+  const user = await admin.auth().getUser(uid);
+  await admin.firestore().collection('staff').doc(uid).set({
+    role: 'admin',
+    adminTier: 'supervisor',
+    email: user.email ?? null,
+    phone: user.phoneNumber ?? null,
+    displayName: user.displayName ?? null,
+    updatedAt: new Date().toISOString(),
+  });
   console.log(`Granted role=admin, adminTier=supervisor to ${uid}.`);
   process.exit(0);
 }

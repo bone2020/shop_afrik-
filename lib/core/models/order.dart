@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'enums.dart';
 import 'money.dart';
@@ -88,7 +89,8 @@ class DeliveryLocation {
         'market': market,
       };
 
-  factory DeliveryLocation.fromMap(Map<String, dynamic> map) => DeliveryLocation(
+  factory DeliveryLocation.fromMap(Map<String, dynamic> map) =>
+      DeliveryLocation(
         recipientName: map['recipientName'] as String? ?? '',
         phone: map['phone'] as String? ?? '',
         addressLine: map['addressLine'] as String? ?? '',
@@ -136,7 +138,7 @@ class DeliveryProof {
         photoUrl: map['photoUrl'] as String?,
         latitude: (map['latitude'] as num?)?.toDouble(),
         longitude: (map['longitude'] as num?)?.toDouble(),
-        capturedAt: DateTime.tryParse(map['capturedAt'] as String? ?? ''),
+        capturedAt: readDate(map['capturedAt']),
       );
 }
 
@@ -161,6 +163,7 @@ class ShopOrder {
     this.deliveryStatus = DeliveryStatus.notDispatched,
     this.settlementStatus = SettlementStatus.notDue,
     this.qrWalletTxnId,
+    this.courierId,
     this.deliveryConfirmedAt,
     this.settlementDueAt,
     this.createdAt,
@@ -205,6 +208,9 @@ class ShopOrder {
   /// QR Wallet transaction that paid this order (plan §5 step 5).
   final String? qrWalletTxnId;
 
+  /// Courier assigned to drop this order off (admin-assigned; SA-120).
+  final String? courierId;
+
   /// When the courier confirmed delivery — starts the 7-day refund window.
   final DateTime? deliveryConfirmedAt;
 
@@ -235,6 +241,7 @@ class ShopOrder {
         'deliveryStatus': deliveryStatus.name,
         'settlementStatus': settlementStatus.name,
         'qrWalletTxnId': qrWalletTxnId,
+        'courierId': courierId,
         'deliveryConfirmedAt': deliveryConfirmedAt?.toIso8601String(),
         'settlementDueAt': settlementDueAt?.toIso8601String(),
         'createdAt': createdAt?.toIso8601String(),
@@ -271,11 +278,10 @@ class ShopOrder {
         settlementStatus:
             SettlementStatus.fromName(map['settlementStatus'] as String?),
         qrWalletTxnId: map['qrWalletTxnId'] as String?,
-        deliveryConfirmedAt:
-            DateTime.tryParse(map['deliveryConfirmedAt'] as String? ?? ''),
-        settlementDueAt:
-            DateTime.tryParse(map['settlementDueAt'] as String? ?? ''),
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
-        updatedAt: DateTime.tryParse(map['updatedAt'] as String? ?? ''),
+        courierId: map['courierId'] as String?,
+        deliveryConfirmedAt: readDate(map['deliveryConfirmedAt']),
+        settlementDueAt: readDate(map['settlementDueAt']),
+        createdAt: readDate(map['createdAt']),
+        updatedAt: readDate(map['updatedAt']),
       );
 }

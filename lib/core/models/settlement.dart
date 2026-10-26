@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'firestore_dates.dart';
 
 import 'enums.dart';
 import 'money.dart';
@@ -70,8 +71,8 @@ class Settlement {
         net: Money.fromMap(map['net'] as Map<String, dynamic>?),
         status: SettlementStatus.fromName(map['status'] as String?),
         qrWalletPayoutId: map['qrWalletPayoutId'] as String?,
-        dueAt: DateTime.tryParse(map['dueAt'] as String? ?? ''),
-        settledAt: DateTime.tryParse(map['settledAt'] as String? ?? ''),
-        createdAt: DateTime.tryParse(map['createdAt'] as String? ?? ''),
+        dueAt: readDate(map['dueAt']),
+        settledAt: readDate(map['settledAt']),
+        createdAt: readDate(map['createdAt']),
       );
 }
