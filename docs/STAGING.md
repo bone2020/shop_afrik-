@@ -19,7 +19,9 @@ instead of real money. Nothing done there reaches real customers or money.
      **Editor**, **Service Account User**, **Project IAM Admin**, **Cloud
      Functions Admin** and **Cloud Run Admin** roles. The first functions
      deploy needs all five: it grants Google's own services their roles and
-     lets the app call the functions.
+     lets the app call the functions. Once a deploy has passed, remove
+     **Project IAM Admin** again: later deploys only check those grants, and
+     the key stored in GitHub should not be able to change who has access.
    - Google Cloud console → APIs: enable the **Cloud Billing API** (the deploy
      checks the project is on Blaze).
    - GitHub → Settings → Secrets and variables → **Actions** (not Codespaces
