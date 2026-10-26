@@ -155,7 +155,11 @@ enum PaymentStatus {
   released,
 
   partiallyRefunded,
-  refunded;
+  refunded,
+
+  /// Pay-on-delivery hold could not be captured at delivery; the seller is
+  /// not settled until staff resolve it.
+  captureFailed;
 
   static PaymentStatus fromName(String? n) => _byName(values, n, pending);
 }

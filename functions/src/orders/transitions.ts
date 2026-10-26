@@ -3,11 +3,12 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from '../lib/admin';
 import { requireAuth, requireRole } from '../lib/guards';
 import { writeAudit } from '../lib/audit';
-import { notify } from '../lib/notify';
+import { alertAdmins, notify } from '../lib/notify';
 import { recordLedgerMove } from '../lib/ledger';
 import { loadSettings } from '../config';
 import * as qrWallet from '../lib/qrWallet';
-import { Collections, Money, canTransition } from '../types';
+import { releaseStock } from './stockReservation';
+import { Collections, Money, OrderItem, canTransition } from '../types';
 
 /**
  * Seller marks an order shipped (v2 §8 B1). Allowed only from `confirmed`, and
@@ -83,6 +84,10 @@ async function deliverOrder(
   proof?: DeliveryProofInput,
 ): Promise<void> {
   const settings = await loadSettings();
+  const settlementDueAt = () =>
+    Timestamp.fromMillis(
+      Date.now() + settings.settlementDelayDays * 24 * 60 * 60 * 1000,
+    );
   const ref = db.collection(Collections.orders).doc(orderId);
 
   const result = await db.runTransaction(async (tx) => {
@@ -95,17 +100,19 @@ async function deliverOrder(
         `Cannot deliver an order in state ${order.status}.`,
       );
     }
-    const dueAt = Timestamp.fromMillis(
-      Date.now() + settings.settlementDelayDays * 24 * 60 * 60 * 1000,
-    );
     const update: Record<string, unknown> = {
       status: 'delivered',
       deliveryStatus: 'deliveryConfirmed',
       deliveryConfirmedAt: FieldValue.serverTimestamp(),
-      settlementStatus: 'scheduled',
-      settlementDueAt: dueAt,
       updatedAt: FieldValue.serverTimestamp(),
     };
+    // Settlement is scheduled only once the buyer's money is in escrow
+    // (SA-028): now for pay-now, after the hold is captured for
+    // pay-on-delivery.
+    if (order.paymentMethod !== 'payOnDelivery') {
+      update.settlementStatus = 'scheduled';
+      update.settlementDueAt = settlementDueAt();
+    }
     if (proof) {
       update.deliveryProof = {
         deliveryPersonId: proof.deliveryPersonId,
@@ -132,8 +139,9 @@ async function deliverOrder(
     metadata: { withProof: proof != null },
   });
 
-  // Pay-on-delivery: capture the hold into escrow now. Inert for now — record
-  // the delivery and leave the capture pending rather than faking it.
+  // Pay-on-delivery: capture the hold into escrow now. Only a successful
+  // capture schedules the seller's settlement; a failed one leaves settlement
+  // unscheduled and alerts staff (SA-028).
   if (result.paymentMethod === 'payOnDelivery') {
     try {
       const txn = await qrWallet.captureHold({
@@ -141,7 +149,12 @@ async function deliverOrder(
         amount: result.total,
         idempotencyKey: `escrow_capture_${orderId}`,
       });
-      await ref.update({ paymentStatus: 'captured' });
+      await ref.update({
+        paymentStatus: 'captured',
+        settlementStatus: 'scheduled',
+        settlementDueAt: settlementDueAt(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
       await recordLedgerMove({
         moveId: `escrow_capture_${orderId}`,
         type: 'escrow_hold',
@@ -151,12 +164,22 @@ async function deliverOrder(
         externalTxnId: txn,
       });
     } catch (e) {
+      await ref.update({
+        paymentStatus: 'captureFailed',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
       await writeAudit({
         actorId: 'system',
-        action: 'order.capture.pending',
+        action: 'order.capture.failed',
         targetType: 'order',
         targetId: orderId,
         metadata: { error: (e as Error).message },
+      });
+      await alertAdmins({
+        title: 'Pay-on-delivery capture failed',
+        body: `Order ${orderId} was delivered but the payment could not be captured. The seller will not be paid until this is resolved.`,
+        type: 'capture_failed',
+        deepLink: `/admin/orders/${orderId}`,
       });
     }
   }
@@ -250,6 +273,13 @@ export const cancelOrder = onCall(async (req) => {
     );
   }
 
+  if (order.paymentInDoubt === true || (status === 'awaitingPayment' && order.stockReserved === true)) {
+    throw new HttpsError(
+      'failed-precondition',
+      'A payment for this order is in progress. Try again shortly.',
+    );
+  }
+
   const wasConfirmed = status === 'confirmed';
   const total = order.total as Money;
   let paymentStatus: string | null = null;
@@ -283,27 +313,16 @@ export const cancelOrder = onCall(async (req) => {
   }
 
   await db.runTransaction(async (tx) => {
-    // Restore stock committed at payment (only confirmed orders decremented it).
-    if (wasConfirmed) {
-      const items = (order.items ?? []) as Array<{
-        productId: string;
-        quantity: number;
-      }>;
-      const snaps = await Promise.all(
-        items.map((i) =>
-          tx.get(db.collection(Collections.products).doc(i.productId)),
-        ),
-      );
-      snaps.forEach((p, idx) => {
-        if (!p.exists) return;
-        tx.update(p.ref, {
-          stock: ((p.data()!.stock as number) ?? 0) + items[idx].quantity,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      });
+    // Restore reserved stock (SA-040); orders confirmed before reservations
+    // existed decremented stock at payment.
+    const fresh = (await tx.get(ref)).data() ?? order;
+    if (fresh.stockReserved === true || (wasConfirmed && fresh.stockReserved == null)) {
+      await releaseStock(tx, (fresh.items ?? []) as OrderItem[]);
     }
     const update: Record<string, unknown> = {
       status: 'cancelled',
+      stockReserved: false,
+      reservationExpiresAt: null,
       updatedAt: FieldValue.serverTimestamp(),
     };
     if (paymentStatus != null) update.paymentStatus = paymentStatus;

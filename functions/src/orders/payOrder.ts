@@ -4,8 +4,10 @@ import { db } from '../lib/admin';
 import { requireAuth } from '../lib/guards';
 import { notify } from '../lib/notify';
 import { recordLedgerMove } from '../lib/ledger';
+import { writeAudit } from '../lib/audit';
 import * as qrWallet from '../lib/qrWallet';
-import { Collections, Money, PaymentMethod } from '../types';
+import { releaseStock, reservationExpiry, reserveStock } from './stockReservation';
+import { Collections, Money, OrderItem, PaymentMethod } from '../types';
 
 /**
  * Buyer pays once delivery is quoted (v2 §5). Two options:
@@ -13,10 +15,12 @@ import { Collections, Money, PaymentMethod } from '../types';
  *   - payOnDelivery: money-in via the hold seam (authorization hold; captured
  *     on delivery).
  *
- * Both seam calls are inert for now and will throw — the order stays in
- * `awaitingPayment` and the real failure is surfaced. We never simulate
- * success. On a real success the order becomes `confirmed` and stock is
- * decremented.
+ * Stock is reserved in a transaction *before* any money moves (SA-040), so two
+ * buyers can never pay for the last unit: the loser is refused before being
+ * charged. A declined payment releases the reservation. A payment whose
+ * outcome is unknown (timeout) keeps it and is flagged for reconciliation,
+ * because the money may have moved; an expired reservation is released by
+ * `releaseExpiredReservations` only when no payment is in doubt.
  */
 export const payOrder = onCall(async (req) => {
   const buyerId = requireAuth(req);
@@ -31,71 +35,82 @@ export const payOrder = onCall(async (req) => {
   }
 
   const orderRef = db.collection(Collections.orders).doc(orderId);
-  const snap = await orderRef.get();
-  if (!snap.exists) throw new HttpsError('not-found', 'Order not found.');
-  const order = snap.data()!;
 
-  if (order.buyerId !== buyerId) {
-    throw new HttpsError('permission-denied', 'Not your order.');
-  }
-  if (order.status !== 'awaitingPayment') {
-    throw new HttpsError(
-      'failed-precondition',
-      'This order is not awaiting payment.',
-    );
-  }
+  // Step 1: reserve stock and mark the payment as in progress, atomically.
+  const order = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(orderRef);
+    if (!snap.exists) throw new HttpsError('not-found', 'Order not found.');
+    const o = snap.data()!;
+    if (o.buyerId !== buyerId) {
+      throw new HttpsError('permission-denied', 'Not your order.');
+    }
+    if (o.status !== 'awaitingPayment') {
+      throw new HttpsError(
+        'failed-precondition',
+        'This order is not awaiting payment.',
+      );
+    }
+    if (o.stockReserved === true) {
+      throw new HttpsError(
+        'aborted',
+        'A payment for this order is already in progress.',
+      );
+    }
+    await reserveStock(tx, (o.items ?? []) as OrderItem[]);
+    tx.update(orderRef, {
+      stockReserved: true,
+      reservationExpiresAt: reservationExpiry(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return o;
+  });
 
   const total = order.total as Money;
   const idempotencyKey = `pay_${orderId}`;
 
-  // Money-in via the seam (inert for now → throws, surfaced honestly).
+  // Step 2: money-in via the seam.
   let externalTxnId: string;
-  if (method === 'payNow') {
-    externalTxnId = await qrWallet.capture({
-      orderId,
-      buyerWalletId: buyerId,
-      amount: total,
-      idempotencyKey,
-    });
-  } else {
-    externalTxnId = await qrWallet.hold({
-      orderId,
-      buyerWalletId: buyerId,
-      amount: total,
-      idempotencyKey,
-    });
-  }
-
-  // Only reached on a real seam success: confirm the order and commit stock.
-  await db.runTransaction(async (tx) => {
-    const fresh = await tx.get(orderRef);
-    if (fresh.data()!.status !== 'awaitingPayment') return; // already handled
-
-    const items = (order.items ?? []) as Array<{
-      productId: string;
-      quantity: number;
-    }>;
-    const productSnaps = await Promise.all(
-      items.map((i) =>
-        tx.get(db.collection(Collections.products).doc(i.productId)),
-      ),
-    );
-    productSnaps.forEach((p, idx) => {
-      if (!p.exists) return;
-      const next = ((p.data()!.stock as number) ?? 0) - items[idx].quantity;
-      tx.update(p.ref, {
-        stock: next < 0 ? 0 : next,
+  try {
+    externalTxnId = method === 'payNow'
+      ? await qrWallet.capture({ orderId, buyerWalletId: buyerId, amount: total, idempotencyKey })
+      : await qrWallet.hold({ orderId, buyerWalletId: buyerId, amount: total, idempotencyKey });
+  } catch (e) {
+    const code = (e as HttpsError).code;
+    if (code === 'deadline-exceeded') {
+      // Outcome unknown: keep the stock and flag the order for recovery.
+      await orderRef.update({
+        paymentInDoubt: true,
         updatedAt: FieldValue.serverTimestamp(),
       });
-    });
+      await writeAudit({
+        actorId: 'system',
+        action: 'order.payment.uncertain',
+        targetType: 'order',
+        targetId: orderId,
+        metadata: { method, error: (e as Error).message },
+      });
+    } else {
+      // Definitely not charged: give the stock back.
+      await db.runTransaction(async (tx) => {
+        await releaseStock(tx, (order.items ?? []) as OrderItem[]);
+        tx.update(orderRef, {
+          stockReserved: false,
+          reservationExpiresAt: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+    }
+    throw e;
+  }
 
-    tx.update(orderRef, {
-      status: 'confirmed',
-      paymentMethod: method,
-      paymentStatus: method === 'payNow' ? 'captured' : 'held',
-      qrWalletTxnId: externalTxnId,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+  // Step 3: confirm. Stock is already committed by the reservation.
+  await orderRef.update({
+    status: 'confirmed',
+    paymentMethod: method,
+    paymentStatus: method === 'payNow' ? 'captured' : 'held',
+    qrWalletTxnId: externalTxnId,
+    reservationExpiresAt: null,
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   // Pay-now funds are in escrow immediately; a pay-on-delivery hold is not in

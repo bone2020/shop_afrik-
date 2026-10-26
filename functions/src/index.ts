@@ -12,6 +12,7 @@ export { createOrder } from './orders/createOrder';
 export { quoteDelivery } from './orders/quoteDelivery';
 export { payOrder } from './orders/payOrder';
 export { assignCourier } from './orders/assignCourier';
+export { releaseExpiredReservations } from './orders/releaseExpiredReservations';
 export {
   markShipped,
   markDelivered,

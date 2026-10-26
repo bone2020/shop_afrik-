@@ -40,3 +40,23 @@ export async function notify(input: NotifyInput): Promise<void> {
     });
   }
 }
+
+/**
+ * Notifies every admin in the staff directory. Used for failures that need a
+ * person, e.g. a pay-on-delivery capture that did not go through.
+ */
+export async function alertAdmins(
+  input: Omit<NotifyInput, 'recipientId' | 'audience'>,
+): Promise<void> {
+  try {
+    const admins = await db
+      .collection(Collections.staff)
+      .where('role', '==', 'admin')
+      .get();
+    await Promise.all(
+      admins.docs.map((d) => notify({ ...input, recipientId: d.id, audience: 'admin' })),
+    );
+  } catch (e) {
+    logger.error('alertAdmins failed', { type: input.type, error: (e as Error).message });
+  }
+}
