@@ -3,6 +3,18 @@ import 'package:flutter/material.dart';
 import '../../../core/models/enums.dart';
 import '../../../core/theme/app_colors.dart';
 
+/// Human-readable name of an order status.
+String orderStatusLabel(OrderStatus status) => switch (status) {
+      OrderStatus.awaitingDeliveryQuote => 'Awaiting delivery quote',
+      OrderStatus.awaitingPayment => 'Awaiting payment',
+      OrderStatus.confirmed => 'Confirmed',
+      OrderStatus.shipped => 'Shipped',
+      OrderStatus.delivered => 'Delivered',
+      OrderStatus.completed => 'Completed',
+      OrderStatus.cancelled => 'Cancelled',
+      OrderStatus.refunded => 'Refunded',
+    };
+
 /// A small colored chip showing an order's high-level status.
 class OrderStatusChip extends StatelessWidget {
   const OrderStatusChip({super.key, required this.status});
@@ -11,16 +23,16 @@ class OrderStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      OrderStatus.awaitingDeliveryQuote =>
-        ('Awaiting delivery quote', AppColors.mutedText),
-      OrderStatus.awaitingPayment => ('Awaiting payment', AppColors.brightAqua),
-      OrderStatus.confirmed => ('Confirmed', AppColors.brightAqua),
-      OrderStatus.shipped => ('Shipped', AppColors.primaryTeal),
-      OrderStatus.delivered => ('Delivered', AppColors.primaryTeal),
-      OrderStatus.completed => ('Completed', AppColors.primaryTeal),
-      OrderStatus.cancelled => ('Cancelled', AppColors.dangerCoral),
-      OrderStatus.refunded => ('Refunded', AppColors.dangerCoral),
+    final label = orderStatusLabel(status);
+    final color = switch (status) {
+      OrderStatus.awaitingDeliveryQuote => AppColors.mutedText,
+      OrderStatus.awaitingPayment || OrderStatus.confirmed =>
+        AppColors.brightAqua,
+      OrderStatus.shipped ||
+      OrderStatus.delivered ||
+      OrderStatus.completed =>
+        AppColors.primaryTeal,
+      OrderStatus.cancelled || OrderStatus.refunded => AppColors.dangerCoral,
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

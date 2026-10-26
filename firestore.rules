@@ -175,9 +175,11 @@ service cloud.firestore {
     }
 
     // ---- platform settings ----
+    // Changed only through updatePlatformSettings, which validates and
+    // audits every edit (SA-133).
     match /settings/{docId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if false;
     }
 
     // ---- platform account mirror ----

@@ -7,6 +7,9 @@
 export { setUserRole } from './auth/setUserRole';
 export { approveSeller } from './sellers/approveSeller';
 export { suspendSeller } from './sellers/suspendSeller';
+
+export { findUser } from './admin/findUser';
+export { updatePlatformSettings } from './admin/updatePlatformSettings';
 export { approveProduct } from './products/approveProduct';
 
 export { createOrder } from './orders/createOrder';
