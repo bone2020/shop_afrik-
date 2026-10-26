@@ -56,13 +56,17 @@ jobs:
           printf '%s' "$SERVICE_ACCOUNT" > "$RUNNER_TEMP/staging-key.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/staging-key.json" >> "$GITHUB_ENV"
 
+      # `functions:default` names the whole codebase, so every function is
+      # pushed even when its code is unchanged. Plain `functions` skips
+      # unchanged ones, and a skipped function keeps whatever access it had,
+      # including a "let the app call it" step that failed on an earlier run.
       - name: Deploy rules, indexes, storage rules and functions
         if: startsWith(inputs.action, 'deploy')
         working-directory: .
         run: >
           functions/node_modules/.bin/firebase deploy
           --project "$GCLOUD_PROJECT"
-          --only firestore,storage,functions
+          --only firestore,storage,functions:default
           --force --non-interactive
 
       - name: Load test data
