@@ -44,7 +44,9 @@ export type PaymentStatus =
   | 'captured'
   | 'released'
   | 'partiallyRefunded'
-  | 'refunded';
+  | 'refunded'
+  // Pay-on-delivery hold could not be captured at delivery (SA-028).
+  | 'captureFailed';
 
 /** Allowed forward transitions of the order lifecycle (§8 B1). */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
