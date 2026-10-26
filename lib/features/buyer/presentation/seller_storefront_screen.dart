@@ -98,7 +98,7 @@ class _Header extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.star,
-                          size: 16, color: AppColors.brightAqua),
+                          size: 16, color: AppColors.accentGold),
                       const SizedBox(width: 4),
                       Text(
                         seller.ratingCount == 0

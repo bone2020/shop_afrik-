@@ -71,7 +71,7 @@ class _ApprovalBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      ProductApprovalStatus.pending => ('Pending review', AppColors.mutedText),
+      ProductApprovalStatus.pending => ('Pending review', AppColors.warning),
       ProductApprovalStatus.approved => ('Approved', AppColors.primaryTeal),
       ProductApprovalStatus.rejected => ('Rejected', AppColors.dangerCoral),
     };

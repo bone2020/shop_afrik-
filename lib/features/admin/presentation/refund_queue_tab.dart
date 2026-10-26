@@ -160,7 +160,7 @@ class _TierBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (tier) {
       RefundTier.tier1 => ('Tier 1', AppColors.primaryTeal),
-      RefundTier.tier2 => ('Tier 2', AppColors.brightAqua),
+      RefundTier.tier2 => ('Tier 2', AppColors.warning),
       RefundTier.exceptional => ('Exceptional', AppColors.dangerCoral),
     };
     return Container(

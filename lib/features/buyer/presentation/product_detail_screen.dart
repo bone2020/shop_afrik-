@@ -85,7 +85,7 @@ class _Detail extends ConsumerWidget {
                     Row(
                       children: [
                         const Icon(Icons.star,
-                            size: 16, color: AppColors.brightAqua),
+                            size: 16, color: AppColors.accentGold),
                         const SizedBox(width: 4),
                         Text(
                           product.ratingCount == 0
@@ -196,7 +196,7 @@ class _Reviews extends ConsumerWidget {
                           Icon(
                             i <= r.rating ? Icons.star : Icons.star_border,
                             size: 14,
-                            color: AppColors.brightAqua,
+                            color: AppColors.accentGold,
                           ),
                         const SizedBox(width: 8),
                         Text(r.buyerName,

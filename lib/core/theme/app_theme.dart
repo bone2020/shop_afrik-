@@ -10,12 +10,20 @@ abstract final class AppTheme {
       onPrimary: AppColors.primaryDark,
       secondary: AppColors.brightAqua,
       onSecondary: AppColors.primaryDark,
+      tertiary: AppColors.accentGold,
+      onTertiary: AppColors.primaryDark,
       error: AppColors.dangerCoral,
-      onError: AppColors.primaryText,
+      onError: AppColors.onDanger,
       surface: AppColors.panelDark,
       onSurface: AppColors.primaryText,
-      surfaceContainerHighest: AppColors.panelDark,
+      onSurfaceVariant: AppColors.mutedText,
+      surfaceContainerLowest: AppColors.primaryDark,
+      surfaceContainerLow: AppColors.surfaceLow,
+      surfaceContainer: AppColors.panelDark,
+      surfaceContainerHigh: AppColors.surfaceHigh,
+      surfaceContainerHighest: AppColors.surfaceHighest,
       outline: AppColors.divider,
+      outlineVariant: AppColors.divider,
     );
 
     final base = ThemeData(

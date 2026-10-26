@@ -14,11 +14,11 @@ class OrderStatusChip extends StatelessWidget {
     final (label, color) = switch (status) {
       OrderStatus.awaitingDeliveryQuote =>
         ('Awaiting delivery quote', AppColors.mutedText),
-      OrderStatus.awaitingPayment => ('Awaiting payment', AppColors.brightAqua),
-      OrderStatus.confirmed => ('Confirmed', AppColors.brightAqua),
+      OrderStatus.awaitingPayment => ('Awaiting payment', AppColors.warning),
+      OrderStatus.confirmed => ('Confirmed', AppColors.info),
       OrderStatus.shipped => ('Shipped', AppColors.primaryTeal),
-      OrderStatus.delivered => ('Delivered', AppColors.primaryTeal),
-      OrderStatus.completed => ('Completed', AppColors.primaryTeal),
+      OrderStatus.delivered => ('Delivered', AppColors.brightAqua),
+      OrderStatus.completed => ('Completed', AppColors.success),
       OrderStatus.cancelled => ('Cancelled', AppColors.dangerCoral),
       OrderStatus.refunded => ('Refunded', AppColors.dangerCoral),
     };

@@ -91,7 +91,7 @@ class _StoreHeader extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.star, size: 18, color: AppColors.brightAqua),
+          const Icon(Icons.star, size: 18, color: AppColors.accentGold),
           const SizedBox(width: 4),
           Text(
             seller.ratingCount == 0

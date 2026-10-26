@@ -284,7 +284,7 @@ class _RatingDialogState extends State<_RatingDialog> {
               for (var i = 1; i <= 5; i++)
                 IconButton(
                   icon: Icon(i <= _rating ? Icons.star : Icons.star_border,
-                      color: AppColors.brightAqua),
+                      color: AppColors.accentGold),
                   onPressed: () => setState(() => _rating = i),
                 ),
             ],
