@@ -69,6 +69,32 @@ jobs:
           --only firestore,storage,functions:default
           --force --non-interactive
 
+      # The CLI only opens a callable function to the app when it first
+      # creates it, and never on later updates, so a create that failed to
+      # set access leaves the app getting UNAUTHENTICATED for good. Grant it
+      # on every deploy; each function still checks who is signed in.
+      - name: Let the app call the functions
+        if: startsWith(inputs.action, 'deploy')
+        run: |
+          gcloud auth activate-service-account --key-file="$GOOGLE_APPLICATION_CREDENTIALS" --quiet
+          names=$(node -e '
+            const fns = require("./lib/index.js");
+            for (const [name, fn] of Object.entries(fns)) {
+              if (fn?.__endpoint?.callableTrigger) console.log(name.toLowerCase().replace(/_/g, "-"));
+            }
+          ')
+          if [ -z "$names" ]; then
+            echo "::error::Found no callable functions in lib/index.js."
+            exit 1
+          fi
+          for name in $names; do
+            gcloud run services add-iam-policy-binding "$name" \
+              --project "$GCLOUD_PROJECT" --region us-central1 \
+              --member allUsers --role roles/run.invoker \
+              --quiet --format none
+            echo "$name: open to the app"
+          done
+
       - name: Load test data
         if: endsWith(inputs.action, 'load test data')
         env:
